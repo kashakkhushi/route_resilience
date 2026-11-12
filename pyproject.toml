@@ -1,0 +1,33 @@
+[project]
+name = "route-resilience"
+version = "0.1.0"
+description = "Occlusion-robust road extraction & graph-theoretic criticality analysis"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".venv", "data", "outputs", "checkpoints", "notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "NPY"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/*" = ["F401", "F811"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+  "slow: takes > 10s",
+  "gpu: requires CUDA",
+  "geo: requires rasterio/geopandas",
+  "network: requires internet (OSM download)",
+]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::FutureWarning"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true

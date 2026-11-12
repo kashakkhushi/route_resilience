@@ -1,0 +1,29 @@
+# ============================================================================
+# GEOSPATIAL - GeoTIFF I/O, CRS handling, OSM ground-truth automation.
+# Needed only for REAL satellite data. The synthetic demo and the whole
+# graph/analytics stack run without any of this.
+#
+#   pip install -r requirements-geo.txt
+#
+# GDAL: do NOT `pip install GDAL`. It compiles against a system libgdal and
+# fails on most machines. Modern rasterio/fiona wheels bundle their own GDAL,
+# so installing rasterio is sufficient and is what this file relies on.
+#
+# If wheels still fail (common on Windows or older Python), use conda instead:
+#   conda create -n rr python=3.11
+#   conda install -c conda-forge rasterio geopandas osmnx rioxarray
+# ============================================================================
+
+rasterio>=1.3.9,<2.0        # bundles GDAL; do not install GDAL separately
+geopandas>=0.14,<2.0
+shapely>=2.0,<3.0           # 2.x only; 1.8 has a different, incompatible API
+pyproj>=3.6,<4.0
+fiona>=1.9,<2.0
+rtree>=1.1                  # spatial index; without it geopandas joins crawl
+
+# OSM ground-truth automation. 2.0 changed graph_from_bbox to take a single
+# bbox=(left, bottom, right, top) tuple - src/data/osm_groundtruth.py uses the
+# 2.x signature, so do not downgrade below 2.0.
+osmnx>=2.0,<3.0
+
+rioxarray>=0.15             # optional: lazy/chunked reads of very large scenes

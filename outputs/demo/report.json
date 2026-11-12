@@ -1,0 +1,959 @@
+{
+  "occlusion": {
+    "scene_occluded_frac": 0.12705485026041666,
+    "road_occluded_frac": 0.12311815459505285,
+    "road_visible_px": 64129,
+    "road_hidden_px": 9004
+  },
+  "pixel_metrics": {
+    "iou": 0.83678,
+    "dice": 0.91114,
+    "precision": 1.0,
+    "recall": 0.83678,
+    "buffer_px": 4,
+    "relaxed_precision": 1.0,
+    "relaxed_recall": 0.89047,
+    "relaxed_iou": 0.89047,
+    "relaxed_f1": 0.94206,
+    "cldice": 0.91282,
+    "topology_precision": 1.0,
+    "topology_recall": 0.83962,
+    "components_pred": 49,
+    "components_true": 4,
+    "component_ratio": 12.25,
+    "largest_component_fraction": 0.23278,
+    "recall_visible": 0.83451,
+    "recall_occluded": 0.85295,
+    "occlusion_gap": -0.01845,
+    "road_px_visible": 64129,
+    "road_px_occluded": 9004,
+    "occluded_fraction": 0.12312
+  },
+  "healing": {
+    "components_before": 40,
+    "components_after": 3,
+    "components_merged": 37,
+    "bridges_added": 37,
+    "loops_restored": 13,
+    "candidates_considered": 137,
+    "candidates_rejected_as_cycle": 100,
+    "healed_length_px": 1139.7,
+    "healed_length_fraction": 0.096,
+    "mean_bridge_cost": 51.5
+  },
+  "connectivity_ratio": {
+    "components_before": 40,
+    "components_after": 3,
+    "lcc_nodes_before": 41,
+    "lcc_nodes_after": 222,
+    "lcc_node_increase_pct": 441.46,
+    "lcc_length_km_before": 5.112,
+    "lcc_length_km_after": 23.424,
+    "lcc_length_increase_pct": 358.25,
+    "lcc_coverage_before": 0.1798,
+    "lcc_coverage_after": 0.9737
+  },
+  "topology_recovery": {
+    "ground_truth": {
+      "nodes": 182,
+      "edges": 233,
+      "components": 2,
+      "giant_component_fraction": 0.6154,
+      "total_length_km": 26.698,
+      "healed_length_km": 0.0,
+      "mean_degree": 2.56,
+      "dead_ends": 64,
+      "intersections": 115,
+      "gatekeepers": 55,
+      "bridge_edges": 76,
+      "alpha_index": 0.1497,
+      "avg_shortest_path_m": 1118.9
+    },
+    "fragmented": {
+      "nodes": 228,
+      "edges": 201,
+      "components": 40,
+      "giant_component_fraction": 0.1798,
+      "total_length_km": 21.471,
+      "healed_length_km": 0.0,
+      "mean_degree": 1.763,
+      "dead_ends": 153,
+      "intersections": 73,
+      "gatekeepers": 64,
+      "bridge_edges": 152,
+      "alpha_index": 0.0508,
+      "avg_shortest_path_m": 795.8
+    },
+    "healed": {
+      "nodes": 228,
+      "edges": 251,
+      "components": 3,
+      "giant_component_fraction": 0.9737,
+      "total_length_km": 23.75,
+      "healed_length_km": 2.279,
+      "mean_degree": 2.202,
+      "dead_ends": 64,
+      "intersections": 83,
+      "gatekeepers": 89,
+      "bridge_edges": 114,
+      "alpha_index": 0.059,
+      "avg_shortest_path_m": 1256.2
+    }
+  },
+  "apls": {
+    "apls": 0.33636,
+    "apls_gt_to_pred": 0.64977,
+    "apls_pred_to_gt": 0.22691,
+    "pairs_evaluated": 300,
+    "nodes_unmatched": 61,
+    "routes_unreachable": 0,
+    "tolerance_px": 15
+  },
+  "path_error": {
+    "mean_abs_path_error_m": 193.04,
+    "median_abs_path_error_m": 137.77,
+    "mean_relative_error": 0.23837,
+    "p90_relative_error": 0.43276,
+    "routes_compared": 198,
+    "routes_failed": 52,
+    "route_failure_rate": 0.208
+  },
+  "statistics": {
+    "nodes": 222,
+    "edges": 247,
+    "components": 1,
+    "giant_component_fraction": 1.0,
+    "total_length_km": 23.424,
+    "healed_length_km": 2.279,
+    "mean_degree": 2.225,
+    "dead_ends": 59,
+    "intersections": 82,
+    "gatekeepers": 88,
+    "bridge_edges": 110,
+    "alpha_index": 0.0592,
+    "avg_shortest_path_m": 1256.2
+  },
+  "top_nodes": [
+    {
+      "node": 32,
+      "score": 1.0,
+      "gatekeeper": true
+    },
+    {
+      "node": 96,
+      "score": 0.9926,
+      "gatekeeper": true
+    },
+    {
+      "node": 18,
+      "score": 0.879,
+      "gatekeeper": true
+    },
+    {
+      "node": 125,
+      "score": 0.876,
+      "gatekeeper": true
+    },
+    {
+      "node": 10,
+      "score": 0.8757,
+      "gatekeeper": true
+    },
+    {
+      "node": 108,
+      "score": 0.8737,
+      "gatekeeper": true
+    },
+    {
+      "node": 47,
+      "score": 0.858,
+      "gatekeeper": true
+    },
+    {
+      "node": 80,
+      "score": 0.8436,
+      "gatekeeper": true
+    },
+    {
+      "node": 114,
+      "score": 0.8379,
+      "gatekeeper": true
+    },
+    {
+      "node": 101,
+      "score": 0.806,
+      "gatekeeper": true
+    },
+    {
+      "node": 94,
+      "score": 0.8058,
+      "gatekeeper": true
+    },
+    {
+      "node": 30,
+      "score": 0.7763,
+      "gatekeeper": true
+    },
+    {
+      "node": 106,
+      "score": 0.7722,
+      "gatekeeper": true
+    },
+    {
+      "node": 92,
+      "score": 0.7546,
+      "gatekeeper": true
+    },
+    {
+      "node": 110,
+      "score": 0.7546,
+      "gatekeeper": true
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario": "flood_city_centre",
+      "description": "Inundation centred at (384, 384), radius 123px",
+      "removed_nodes": 19,
+      "removed_edges": 0,
+      "nodes_remaining": 203,
+      "components_after": 3,
+      "giant_fraction_after": 0.9009,
+      "od_pairs": 250,
+      "od_disconnected": 45,
+      "disconnection_rate": 0.18,
+      "mean_detour_ratio": 1.0769,
+      "p95_detour_ratio": 1.3903,
+      "worst_detour_ratio": 1.8931,
+      "efficiency_before": 0.001629,
+      "efficiency_after": 0.001381,
+      "efficiency_retained": 0.8476
+    },
+    {
+      "scenario": "river_overflow",
+      "description": "Raster-defined inundation extent",
+      "removed_nodes": 3,
+      "removed_edges": 0,
+      "nodes_remaining": 219,
+      "components_after": 1,
+      "giant_fraction_after": 0.9865,
+      "od_pairs": 250,
+      "od_disconnected": 7,
+      "disconnection_rate": 0.028,
+      "mean_detour_ratio": 1.0,
+      "p95_detour_ratio": 1.0,
+      "worst_detour_ratio": 1.0,
+      "efficiency_before": 0.001629,
+      "efficiency_after": 0.001612,
+      "efficiency_retained": 0.9898
+    },
+    {
+      "scenario": "arterial_closure",
+      "description": "2 segment(s) closed",
+      "removed_nodes": 0,
+      "removed_edges": 2,
+      "nodes_remaining": 222,
+      "components_after": 2,
+      "giant_fraction_after": 0.973,
+      "od_pairs": 250,
+      "od_disconnected": 20,
+      "disconnection_rate": 0.08,
+      "mean_detour_ratio": 1.0,
+      "p95_detour_ratio": 1.0,
+      "worst_detour_ratio": 1.0,
+      "efficiency_before": 0.001629,
+      "efficiency_after": 0.001572,
+      "efficiency_retained": 0.9649
+    },
+    {
+      "scenario": "random_6",
+      "description": "Uniformly random node failures (baseline)",
+      "removed_nodes": 6,
+      "removed_edges": 0,
+      "nodes_remaining": 216,
+      "components_after": 6,
+      "giant_fraction_after": 0.9414,
+      "od_pairs": 250,
+      "od_disconnected": 35,
+      "disconnection_rate": 0.14,
+      "mean_detour_ratio": 1.0204,
+      "p95_detour_ratio": 1.1885,
+      "worst_detour_ratio": 1.5425,
+      "efficiency_before": 0.001629,
+      "efficiency_after": 0.001507,
+      "efficiency_retained": 0.9251
+    },
+    {
+      "scenario": "targeted_top6",
+      "description": "Sequential removal of highest-betweenness nodes",
+      "removed_nodes": 6,
+      "removed_edges": 0,
+      "nodes_remaining": 216,
+      "components_after": 8,
+      "giant_fraction_after": 0.3108,
+      "od_pairs": 250,
+      "od_disconnected": 185,
+      "disconnection_rate": 0.74,
+      "mean_detour_ratio": 1.017,
+      "p95_detour_ratio": 1.0939,
+      "worst_detour_ratio": 1.6626,
+      "efficiency_before": 0.001629,
+      "efficiency_after": 0.000996,
+      "efficiency_retained": 0.6113
+    }
+  ],
+  "reroute_example": {
+    "source": 134,
+    "target": 367,
+    "original_length_m": 2880.4898174563373,
+    "alternate_length_m": Infinity,
+    "reachable": false,
+    "detour_ratio": null,
+    "extra_distance_m": null
+  },
+  "resilience": {
+    "network": {
+      "nodes": 222,
+      "edges": 247,
+      "components": 1,
+      "giant_component_fraction": 1.0,
+      "total_length_km": 23.424,
+      "healed_length_km": 2.279,
+      "mean_degree": 2.225,
+      "dead_ends": 59,
+      "intersections": 82,
+      "gatekeepers": 88,
+      "bridge_edges": 110,
+      "alpha_index": 0.0592,
+      "avg_shortest_path_m": 1256.2
+    },
+    "baseline_redundancy": 0.0592,
+    "scenarios": [
+      {
+        "scenario": "flood_city_centre",
+        "composite_resilience": 0.7609,
+        "components": {
+          "connectivity_retention": 0.82,
+          "efficiency_retention": 0.8416,
+          "detour_score": 0.878,
+          "structural_redundancy": 0.0486
+        },
+        "grade": "B - resilient",
+        "aspl": {
+          "scenario": "flood_city_centre",
+          "resilience_index": 0.8416,
+          "resilience_metric": "NER",
+          "resilience_formula": "NER = E(G_perturbed) / E(G_baseline), where E(H) = mean over a fixed OD sample of 1/d_H(s,t) with 1/inf = 0. Bounded in [0,1] because removing infrastructure cannot shorten any path. 1 = no routing capability lost, 0 = all sampled trips severed.",
+          "resilience_interpretation": "84% of baseline routing efficiency retained; 16% lost.",
+          "normalized_resilience": 0.8416,
+          "efficiency_ratio": 0.8416,
+          "resilience_index_literal_aspl": 0.0,
+          "literal_aspl_is_degenerate": true,
+          "literal_aspl_note": "The project brief defines R = ASPL_baseline / ASPL_perturbed. It reads exactly 0 here because the scenario disconnected at least one OD pair, making mean shortest path length infinite. Reported for compliance; NER is the primary index.",
+          "diagnostic_aspl_ratio_connected_only": 0.8779,
+          "diagnostic_is_resilience_score": false,
+          "diagnostic_survivorship_biased": false,
+          "diagnostic_note": "Diagnostic only: ratio of mean path length over pairs that remained connected. Not bounded and not a resilience score.",
+          "disconnection_rate": 0.18,
+          "aspl_baseline_m": 1236.9,
+          "aspl_perturbed_m": 1408.9,
+          "aspl_increase_pct": 13.9,
+          "network_fully_connected_after": false,
+          "od_pairs": 200,
+          "removed_nodes": 19,
+          "removed_edges": 0,
+          "grade": "B - resilient",
+          "note": "Primary index is NER (bounded [0,1]). The literal ASPL ratio and the connected-only ratio are reported alongside it as compliance and diagnostic values respectively, and must not be used for ranking."
+        }
+      },
+      {
+        "scenario": "river_overflow",
+        "composite_resilience": 0.8968,
+        "components": {
+          "connectivity_retention": 0.975,
+          "efficiency_retention": 0.9915,
+          "detour_score": 1.0166,
+          "structural_redundancy": 0.06
+        },
+        "grade": "A - highly resilient",
+        "aspl": {
+          "scenario": "river_overflow",
+          "resilience_index": 0.9915,
+          "resilience_metric": "NER",
+          "resilience_formula": "NER = E(G_perturbed) / E(G_baseline), where E(H) = mean over a fixed OD sample of 1/d_H(s,t) with 1/inf = 0. Bounded in [0,1] because removing infrastructure cannot shorten any path. 1 = no routing capability lost, 0 = all sampled trips severed.",
+          "resilience_interpretation": "99% of baseline routing efficiency retained; 1% lost.",
+          "normalized_resilience": 0.9915,
+          "efficiency_ratio": 0.9915,
+          "resilience_index_literal_aspl": 0.0,
+          "literal_aspl_is_degenerate": true,
+          "literal_aspl_note": "The project brief defines R = ASPL_baseline / ASPL_perturbed. It reads exactly 0 here because the scenario disconnected at least one OD pair, making mean shortest path length infinite. Reported for compliance; NER is the primary index.",
+          "diagnostic_aspl_ratio_connected_only": 1.0165,
+          "diagnostic_is_resilience_score": false,
+          "diagnostic_survivorship_biased": true,
+          "diagnostic_note": "Diagnostic only. Averages over surviving pairs, so with 2% of trips severed the survivors are the short ones and this ratio rises above 1 - which would wrongly read as the collapsed network improving. Never present this as resilience.",
+          "disconnection_rate": 0.025,
+          "aspl_baseline_m": 1236.9,
+          "aspl_perturbed_m": 1216.8,
+          "aspl_increase_pct": -1.63,
+          "network_fully_connected_after": false,
+          "od_pairs": 200,
+          "removed_nodes": 3,
+          "removed_edges": 0,
+          "grade": "A - highly resilient",
+          "note": "Primary index is NER (bounded [0,1]). The literal ASPL ratio and the connected-only ratio are reported alongside it as compliance and diagnostic values respectively, and must not be used for ranking."
+        }
+      },
+      {
+        "scenario": "arterial_closure",
+        "composite_resilience": 0.8698,
+        "components": {
+          "connectivity_retention": 0.92,
+          "efficiency_retention": 0.9648,
+          "detour_score": 1.0331,
+          "structural_redundancy": 0.0576
+        },
+        "grade": "A - highly resilient",
+        "aspl": {
+          "scenario": "arterial_closure",
+          "resilience_index": 0.9648,
+          "resilience_metric": "NER",
+          "resilience_formula": "NER = E(G_perturbed) / E(G_baseline), where E(H) = mean over a fixed OD sample of 1/d_H(s,t) with 1/inf = 0. Bounded in [0,1] because removing infrastructure cannot shorten any path. 1 = no routing capability lost, 0 = all sampled trips severed.",
+          "resilience_interpretation": "96% of baseline routing efficiency retained; 4% lost.",
+          "normalized_resilience": 0.9648,
+          "efficiency_ratio": 0.9648,
+          "resilience_index_literal_aspl": 0.0,
+          "literal_aspl_is_degenerate": true,
+          "literal_aspl_note": "The project brief defines R = ASPL_baseline / ASPL_perturbed. It reads exactly 0 here because the scenario disconnected at least one OD pair, making mean shortest path length infinite. Reported for compliance; NER is the primary index.",
+          "diagnostic_aspl_ratio_connected_only": 1.0331,
+          "diagnostic_is_resilience_score": false,
+          "diagnostic_survivorship_biased": true,
+          "diagnostic_note": "Diagnostic only. Averages over surviving pairs, so with 8% of trips severed the survivors are the short ones and this ratio rises above 1 - which would wrongly read as the collapsed network improving. Never present this as resilience.",
+          "disconnection_rate": 0.08,
+          "aspl_baseline_m": 1236.9,
+          "aspl_perturbed_m": 1197.3,
+          "aspl_increase_pct": -3.2,
+          "network_fully_connected_after": false,
+          "od_pairs": 200,
+          "removed_nodes": 0,
+          "removed_edges": 2,
+          "grade": "A - highly resilient",
+          "note": "Primary index is NER (bounded [0,1]). The literal ASPL ratio and the connected-only ratio are reported alongside it as compliance and diagnostic values respectively, and must not be used for ranking."
+        }
+      }
+    ],
+    "ablation": {
+      "curves": {
+        "betweenness": {
+          "strategy": "betweenness",
+          "recompute": true,
+          "baseline_aspl_m": 1238.2,
+          "removed_nodes": [
+            279,
+            93,
+            43,
+            32,
+            94,
+            41,
+            125,
+            116,
+            10,
+            252,
+            26,
+            30
+          ],
+          "steps": [
+            {
+              "step": 1,
+              "removed_node": 279,
+              "was_gatekeeper": false,
+              "fraction_removed": 0.0045,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.9567,
+              "aspl_m": 1367.3,
+              "aspl_increase_pct": 10.42,
+              "disconnection_rate": 0.005,
+              "components": 1
+            },
+            {
+              "step": 2,
+              "removed_node": 93,
+              "was_gatekeeper": false,
+              "fraction_removed": 0.00901,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.9033,
+              "aspl_m": 1711.8,
+              "aspl_increase_pct": 38.25,
+              "disconnection_rate": 0.005,
+              "components": 1
+            },
+            {
+              "step": 3,
+              "removed_node": 43,
+              "was_gatekeeper": false,
+              "fraction_removed": 0.01351,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.8746,
+              "aspl_m": 1833.7,
+              "aspl_increase_pct": 48.09,
+              "disconnection_rate": 0.005,
+              "components": 1
+            },
+            {
+              "step": 4,
+              "removed_node": 32,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.01802,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.6931,
+              "aspl_m": 1282.3,
+              "aspl_increase_pct": 3.56,
+              "disconnection_rate": 0.5,
+              "components": 3
+            },
+            {
+              "step": 5,
+              "removed_node": 94,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.02252,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.6198,
+              "aspl_m": 788.9,
+              "aspl_increase_pct": -36.29,
+              "disconnection_rate": 0.695,
+              "components": 6
+            },
+            {
+              "step": 6,
+              "removed_node": 41,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.02703,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.5957,
+              "aspl_m": 656.4,
+              "aspl_increase_pct": -46.99,
+              "disconnection_rate": 0.745,
+              "components": 8
+            },
+            {
+              "step": 7,
+              "removed_node": 125,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.03153,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.5772,
+              "aspl_m": 710.1,
+              "aspl_increase_pct": -42.65,
+              "disconnection_rate": 0.755,
+              "components": 9
+            },
+            {
+              "step": 8,
+              "removed_node": 116,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.03604,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.5468,
+              "aspl_m": 554.5,
+              "aspl_increase_pct": -55.22,
+              "disconnection_rate": 0.805,
+              "components": 11
+            },
+            {
+              "step": 9,
+              "removed_node": 10,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.04054,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.5142,
+              "aspl_m": 518.2,
+              "aspl_increase_pct": -58.15,
+              "disconnection_rate": 0.835,
+              "components": 13
+            },
+            {
+              "step": 10,
+              "removed_node": 252,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.04505,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.5046,
+              "aspl_m": 505.6,
+              "aspl_increase_pct": -59.17,
+              "disconnection_rate": 0.845,
+              "components": 15
+            },
+            {
+              "step": 11,
+              "removed_node": 26,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.04955,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.4966,
+              "aspl_m": 478.9,
+              "aspl_increase_pct": -61.33,
+              "disconnection_rate": 0.855,
+              "components": 16
+            },
+            {
+              "step": 12,
+              "removed_node": 30,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.05405,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.4345,
+              "aspl_m": 409.8,
+              "aspl_increase_pct": -66.91,
+              "disconnection_rate": 0.905,
+              "components": 17
+            }
+          ],
+          "first_disconnection_step": 1,
+          "efficiency_auc": 0.5852
+        },
+        "random": {
+          "strategy": "random",
+          "recompute": true,
+          "baseline_aspl_m": 1238.2,
+          "removed_nodes": [
+            33,
+            116,
+            118,
+            198,
+            199,
+            310,
+            106,
+            295,
+            286,
+            264,
+            187,
+            340
+          ],
+          "steps": [
+            {
+              "step": 1,
+              "removed_node": 33,
+              "was_gatekeeper": false,
+              "fraction_removed": 0.0045,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.9553,
+              "aspl_m": 1351.0,
+              "aspl_increase_pct": 9.1,
+              "disconnection_rate": 0.01,
+              "components": 1
+            },
+            {
+              "step": 2,
+              "removed_node": 116,
+              "was_gatekeeper": false,
+              "fraction_removed": 0.00901,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.9222,
+              "aspl_m": 1455.7,
+              "aspl_increase_pct": 17.56,
+              "disconnection_rate": 0.02,
+              "components": 1
+            },
+            {
+              "step": 3,
+              "removed_node": 118,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.01351,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.8795,
+              "aspl_m": 1455.8,
+              "aspl_increase_pct": 17.57,
+              "disconnection_rate": 0.055,
+              "components": 2
+            },
+            {
+              "step": 4,
+              "removed_node": 198,
+              "was_gatekeeper": false,
+              "fraction_removed": 0.01802,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.8746,
+              "aspl_m": 1471.2,
+              "aspl_increase_pct": 18.81,
+              "disconnection_rate": 0.06,
+              "components": 2
+            },
+            {
+              "step": 5,
+              "removed_node": 199,
+              "was_gatekeeper": false,
+              "fraction_removed": 0.02252,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.8578,
+              "aspl_m": 1470.2,
+              "aspl_increase_pct": 18.74,
+              "disconnection_rate": 0.08,
+              "components": 2
+            },
+            {
+              "step": 6,
+              "removed_node": 310,
+              "was_gatekeeper": false,
+              "fraction_removed": 0.02703,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.8578,
+              "aspl_m": 1470.2,
+              "aspl_increase_pct": 18.74,
+              "disconnection_rate": 0.08,
+              "components": 2
+            },
+            {
+              "step": 7,
+              "removed_node": 106,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.03153,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.8384,
+              "aspl_m": 1468.3,
+              "aspl_increase_pct": 18.58,
+              "disconnection_rate": 0.12,
+              "components": 5
+            },
+            {
+              "step": 8,
+              "removed_node": 295,
+              "was_gatekeeper": false,
+              "fraction_removed": 0.03604,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.8231,
+              "aspl_m": 1471.8,
+              "aspl_increase_pct": 18.86,
+              "disconnection_rate": 0.135,
+              "components": 5
+            },
+            {
+              "step": 9,
+              "removed_node": 286,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.04054,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.8139,
+              "aspl_m": 1458.1,
+              "aspl_increase_pct": 17.76,
+              "disconnection_rate": 0.155,
+              "components": 6
+            },
+            {
+              "step": 10,
+              "removed_node": 264,
+              "was_gatekeeper": false,
+              "fraction_removed": 0.04505,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.8139,
+              "aspl_m": 1458.1,
+              "aspl_increase_pct": 17.76,
+              "disconnection_rate": 0.155,
+              "components": 6
+            },
+            {
+              "step": 11,
+              "removed_node": 187,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.04955,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.8025,
+              "aspl_m": 1436.0,
+              "aspl_increase_pct": 15.97,
+              "disconnection_rate": 0.185,
+              "components": 7
+            },
+            {
+              "step": 12,
+              "removed_node": 340,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.05405,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.7708,
+              "aspl_m": 1427.1,
+              "aspl_increase_pct": 15.25,
+              "disconnection_rate": 0.245,
+              "components": 8
+            }
+          ],
+          "first_disconnection_step": 1,
+          "efficiency_auc": 0.779
+        },
+        "degree": {
+          "strategy": "degree",
+          "recompute": true,
+          "baseline_aspl_m": 1238.2,
+          "removed_nodes": [
+            3,
+            9,
+            10,
+            12,
+            26,
+            32,
+            38,
+            41,
+            47,
+            48,
+            66,
+            91
+          ],
+          "steps": [
+            {
+              "step": 1,
+              "removed_node": 3,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.0045,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.9484,
+              "aspl_m": 1214.6,
+              "aspl_increase_pct": -1.91,
+              "disconnection_rate": 0.065,
+              "components": 4
+            },
+            {
+              "step": 2,
+              "removed_node": 9,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.00901,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.9264,
+              "aspl_m": 1192.4,
+              "aspl_increase_pct": -3.7,
+              "disconnection_rate": 0.11,
+              "components": 7
+            },
+            {
+              "step": 3,
+              "removed_node": 10,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.01351,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.8702,
+              "aspl_m": 1169.1,
+              "aspl_increase_pct": -5.58,
+              "disconnection_rate": 0.195,
+              "components": 9
+            },
+            {
+              "step": 4,
+              "removed_node": 12,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.01802,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.8304,
+              "aspl_m": 1139.3,
+              "aspl_increase_pct": -7.99,
+              "disconnection_rate": 0.245,
+              "components": 10
+            },
+            {
+              "step": 5,
+              "removed_node": 26,
+              "was_gatekeeper": false,
+              "fraction_removed": 0.02252,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.8036,
+              "aspl_m": 1207.2,
+              "aspl_increase_pct": -2.5,
+              "disconnection_rate": 0.26,
+              "components": 10
+            },
+            {
+              "step": 6,
+              "removed_node": 32,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.02703,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.7351,
+              "aspl_m": 1181.1,
+              "aspl_increase_pct": -4.61,
+              "disconnection_rate": 0.365,
+              "components": 12
+            },
+            {
+              "step": 7,
+              "removed_node": 38,
+              "was_gatekeeper": false,
+              "fraction_removed": 0.03153,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.7028,
+              "aspl_m": 1264.3,
+              "aspl_increase_pct": 2.1,
+              "disconnection_rate": 0.37,
+              "components": 12
+            },
+            {
+              "step": 8,
+              "removed_node": 41,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.03604,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.6306,
+              "aspl_m": 1064.1,
+              "aspl_increase_pct": -14.06,
+              "disconnection_rate": 0.55,
+              "components": 14
+            },
+            {
+              "step": 9,
+              "removed_node": 47,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.04054,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.6142,
+              "aspl_m": 1040.4,
+              "aspl_increase_pct": -15.98,
+              "disconnection_rate": 0.58,
+              "components": 17
+            },
+            {
+              "step": 10,
+              "removed_node": 48,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.04505,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.5876,
+              "aspl_m": 1030.0,
+              "aspl_increase_pct": -16.81,
+              "disconnection_rate": 0.61,
+              "components": 19
+            },
+            {
+              "step": 11,
+              "removed_node": 66,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.04955,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.563,
+              "aspl_m": 994.1,
+              "aspl_increase_pct": -19.72,
+              "disconnection_rate": 0.655,
+              "components": 20
+            },
+            {
+              "step": 12,
+              "removed_node": 91,
+              "was_gatekeeper": true,
+              "fraction_removed": 0.05405,
+              "resilience_index": 0.0,
+              "efficiency_ratio": 0.5361,
+              "aspl_m": 1011.5,
+              "aspl_increase_pct": -18.31,
+              "disconnection_rate": 0.685,
+              "components": 22
+            }
+          ],
+          "first_disconnection_step": 1,
+          "efficiency_auc": 0.6673
+        }
+      },
+      "vulnerability_gap": 0.1938
+    },
+    "vulnerability_gap": 0.1938,
+    "interpretation": [
+      "88 gatekeeper intersection(s) and 110 bridge segment(s) are single points of failure - each disconnects part of the network on its own. Highest-return hardening targets.",
+      "Structural redundancy is low (0.06); the network is close to a tree, so closures force long detours rather than short ones. New link roads raise resilience more cheaply than widening existing ones.",
+      "Targeted disruption is far more damaging than random damage (gap 0.19) - load is concentrated on a few corridors.",
+      "Removing just 1 high-centrality intersection(s) already severs part of the network - pre-planned emergency routing is warranted."
+    ]
+  },
+  "runtime_seconds": 7.99
+}

@@ -1,0 +1,28 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      args:
+        WITH_TORCH: "${WITH_TORCH:-false}"
+        WITH_GEO: "${WITH_GEO:-false}"
+    environment:
+      CHECKPOINT_DIR: /app/checkpoints
+      MAX_UPLOAD_BYTES: "268435456"
+      CORS_ORIGINS: "http://localhost,http://localhost:5173"
+      EXACT_BETWEENNESS_MAX_NODES: "4000"
+    volumes:
+      # Checkpoints and data are mounted, never baked into the image.
+      - ./checkpoints:/app/checkpoints:ro
+      - ./data:/app/data
+    ports: ["8000:8000"]
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    depends_on:
+      backend: { condition: service_healthy }
+    ports: ["8080:80"]
+    restart: unless-stopped

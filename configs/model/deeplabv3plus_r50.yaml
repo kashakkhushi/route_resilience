@@ -1,0 +1,6 @@
+name: deeplabv3plus_r50
+encoder: resnet50
+encoder_weights: imagenet
+in_channels: 3
+aux_occlusion_head: true
+lr: 3.0e-4

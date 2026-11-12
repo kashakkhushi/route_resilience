@@ -1,0 +1,12 @@
+# Gaps are specified in METRES and converted to pixels per sensor at runtime.
+# A fixed pixel threshold is meaningless across a 40x GSD range: 60 px is 600 m
+# on Sentinel-2 but only 15 m on Cartosat-3.
+max_gap_m: 400.0
+min_spur_m: 60.0
+w_angle: 2.0          # penalty for bridges that do not continue the road direction
+w_evidence: 1.5       # discount for bridges crossing a detected occluder
+tangent_window: 12
+
+restore_loops: true   # 2nd pass; without it the city degenerates into a tree
+detour_threshold: 6.0
+loop_max_cost_factor: 1.4

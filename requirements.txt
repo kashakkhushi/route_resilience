@@ -1,0 +1,43 @@
+# ============================================================================
+# CORE - graph construction, analytics, dashboard, evaluation.
+# Pure CPU. No GDAL, no CUDA, no PyTorch. Installs cleanly on any machine in
+# under a minute, which is what lets the graph/analytics sub-team start work
+# immediately while the DL sub-team is still fighting CUDA drivers.
+#
+#   pip install -r requirements.txt
+# ============================================================================
+
+numpy>=1.26,<3.0
+scipy>=1.11,<2.0
+networkx>=3.2,<4.0
+pandas>=2.1,<4.0
+
+# Skeletonization + morphology. 0.22 is the floor for the numpy-2 compatible
+# skeletonize; note remove_small_holes/objects changed keyword names in 0.26,
+# so src/graph/skeletonize.py calls them positionally.
+scikit-image>=0.22,<0.30
+
+# headless build: the GUI variant pulls in Qt/X11 and breaks Docker and CI.
+opencv-python-headless>=4.9,<5.0
+
+matplotlib>=3.8,<4.0
+PyYAML>=6.0
+tqdm>=4.66
+
+# --- dashboard ---
+streamlit>=1.31,<2.0
+folium>=0.15,<1.0            # Leaflet.js bindings for the map view
+streamlit-folium>=0.18,<1.0  # bridges folium maps into Streamlit with click events
+plotly>=5.18,<7.0            # interactive robustness / ablation curves
+
+# --- config ---
+hydra-core>=1.3,<2.0
+omegaconf>=2.3,<3.0
+python-dotenv>=1.0
+loguru>=0.7
+
+# --- API server (backend/) ---
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.27,<1.0
+python-multipart>=0.0.9      # multipart uploads
+httpx>=0.26                  # TestClient

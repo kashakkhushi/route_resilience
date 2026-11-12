@@ -1,0 +1,10 @@
+# Use when hallucinated bridges are more costly than missing ones - e.g. when
+# the output feeds official infrastructure planning rather than exploration.
+max_gap_m: 150.0
+min_spur_m: 60.0
+w_angle: 4.0
+w_evidence: 3.0
+tangent_window: 16
+restore_loops: true
+detour_threshold: 10.0
+loop_max_cost_factor: 1.0

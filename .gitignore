@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+*.pt
+*.pth
+data/raw/
+data/processed/
+checkpoints/
+reports/
+reports_v2/
+node_modules/
+dist/
+.env
+.DS_Store

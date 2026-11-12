@@ -1,0 +1,13 @@
+# ============================================================================
+# DEV - testing, linting, notebooks.
+#   pip install -r requirements-dev.txt
+# ============================================================================
+
+pytest>=8.0
+pytest-cov>=4.1
+pytest-timeout>=2.2       # graph tests can hang on pathological inputs; fail fast
+ruff>=0.3                 # linter + formatter, replaces flake8/black/isort
+mypy>=1.8
+ipykernel>=6.29
+jupyterlab>=4.1
+memory-profiler>=0.61     # betweenness on large graphs is the memory hotspot

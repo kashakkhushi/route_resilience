@@ -1,0 +1,37 @@
+# ============================================================================
+# DEEP LEARNING - segmentation models only. Needed to TRAIN or RUN inference,
+# not to run the graph/analytics stack or the demo.
+#
+# INSTALL TORCH FIRST, matched to your CUDA driver. Do NOT let pip resolve it
+# from this file - it will silently pull the CPU wheel and training will run
+# ~50x slower with no error message.
+#
+#   nvidia-smi                                  # read the CUDA version
+#   # CUDA 12.1:
+#   pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu121
+#   # CUDA 11.8:
+#   pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu118
+#   # CPU only (smoke tests):
+#   pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cpu
+#
+#   then: pip install -r requirements-dl.txt
+#
+# Verify before training anything:
+#   python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+# ============================================================================
+
+torch>=2.2,<3.0
+torchvision>=0.17,<1.0
+
+# SegFormer (MiT-B0..B5) lives in transformers. 4.38 is the floor for the
+# SegformerForSemanticSegmentation + ignore_mismatched_sizes path used here.
+transformers>=4.38,<5.0
+timm>=0.9,<2.0                            # encoder weights for smp baselines
+segmentation-models-pytorch>=0.3.3,<1.0   # U-Net / UNet++ / DeepLabV3+ baselines
+
+albumentations>=1.4,<3.0                  # geometric + photometric augmentation
+tensorboard>=2.15                         # loss/metric curves during training
+
+# Optional - GNN route (Phase II advanced). Install only if pursuing PyG:
+#   pip install torch-geometric
+# torch-geometric>=2.5

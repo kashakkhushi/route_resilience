@@ -1,0 +1,8 @@
+# Mandatory baseline (Phase I step 2). Without it, "the transformer is better"
+# is an assertion rather than a measurement.
+name: unet_r34
+encoder: resnet34
+encoder_weights: imagenet
+in_channels: 3
+aux_occlusion_head: true
+lr: 3.0e-4

@@ -1,0 +1,5 @@
+name: segformer_b3
+backbone: nvidia/mit-b3
+in_channels: 3
+aux_occlusion_head: true
+lr: 6.0e-5            # transformers need a lower LR than CNNs

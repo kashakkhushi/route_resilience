@@ -1,0 +1,10 @@
+sensor: cartosat3
+gsd_m: 0.25
+bands: [B, G, R, NIR]
+scale: 2047
+# At 0.25 m a 512 px tile covers only 128 m - too little context for a
+# transformer to reason across an occlusion. Use larger tiles here.
+tile_size: 1024
+overlap: 256
+in_channels: 3
+min_road_class: service

@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-base-900 text-ink-100 font-sans antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "tnum";
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-base-600 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-line; }
+}
+
+@layer components {
+  /* Subtle glass panel - the base surface of the command centre. */
+  .panel {
+    @apply bg-base-800/80 border border-line-soft rounded-lg backdrop-blur-sm shadow-panel;
+  }
+  .panel-hd {
+    @apply px-4 py-2.5 border-b border-line-soft flex items-center justify-between;
+  }
+  .label {
+    @apply text-[10px] uppercase tracking-[0.12em] text-ink-500 font-medium;
+  }
+  /* Tabular figures: metrics must not jitter as values change. */
+  .metric { @apply font-mono tabular-nums; }
+
+  .btn {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium
+           transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-primary { @apply btn bg-accent-dim text-base-900 hover:bg-accent; }
+  .btn-ghost   { @apply btn border border-line text-ink-300 hover:text-ink-100 hover:bg-base-700; }
+  .btn-danger  { @apply btn bg-risk-crit/15 border border-risk-crit/40 text-risk-crit hover:bg-risk-crit/25; }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium
+           border tracking-wide;
+  }
+  .input {
+    @apply bg-base-900 border border-line rounded-md px-2.5 py-1.5 text-sm text-ink-100
+           focus:outline-none focus:border-accent-dim;
+  }
+  .skeleton { @apply animate-pulse bg-base-600/60 rounded; }
+}

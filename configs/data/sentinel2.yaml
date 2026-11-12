@@ -1,0 +1,10 @@
+sensor: sentinel2
+gsd_m: 10.0
+bands: [B2, B3, B4, B8]
+scale: 10000          # L2A DN range; MUST divide by this before normalization
+tile_size: 512
+overlap: 128
+in_channels: 3        # set 4 to add NIR, 5 to add NDVI
+# At 10 m GSD a residential road (~7 m) is under one pixel. Only primary+ classes
+# are learnable here - osm_groundtruth drops the rest and reports what it dropped.
+min_road_class: tertiary

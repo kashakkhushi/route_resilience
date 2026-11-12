@@ -1,0 +1,8 @@
+sensor: liss4
+gsd_m: 5.8
+bands: [G, R, NIR]    # NOTE: no blue band - select_rgb() synthesizes one
+scale: 1023
+tile_size: 512
+overlap: 128
+in_channels: 3
+min_road_class: residential
