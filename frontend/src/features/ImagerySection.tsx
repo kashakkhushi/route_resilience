@@ -17,6 +17,9 @@ export default function ImagerySection({ p }: any) {
   const [seed, setSeed] = useState(1);
   const [layer, setLayer] = useState("original");
   const fileRef = useRef<HTMLInputElement>(null);
+  const gtRef = useRef<HTMLInputElement>(null);
+  const isDemo = state.imagery?.meta?.source?.startsWith("DEMO:");
+  const hasGt = !!state.imagery?.layers?.ground_truth;
 
   const layers = state.imagery?.layers ?? {};
   const names = Object.keys(layers);
@@ -100,6 +103,24 @@ export default function ImagerySection({ p }: any) {
             pixels scaled by an assumed GSD.
           </p>
         </Panel>
+
+        {state.imagery && !isDemo && (
+          <Panel title="Ground truth (optional)" dense>
+            <input ref={gtRef} type="file" accept=".png,.tif,.tiff,.jpg,.jpeg"
+                   className="hidden"
+                   onChange={(e) => { const f = e.target.files?.[0];
+                                      if (f) p.uploadGroundTruth(f); e.target.value = ""; }} />
+            <button className="btn-ghost w-full justify-center" disabled={!!state.busy}
+                    onClick={() => gtRef.current?.click()}>
+              <Upload size={14} /> {hasGt ? "Replace ground-truth mask" : "Upload ground-truth mask"}
+            </button>
+            <p className="text-[10px] text-ink-500 mt-2 leading-relaxed">
+              {hasGt
+                ? "Ground truth attached \u2014 IoU, Dice, precision, recall and clDice are computed against it."
+                : "For a DeepGlobe tile, upload the matching *_mask.png (same number). It must have exactly the image\u2019s size; then real metrics are shown for this scene."}
+            </p>
+          </Panel>
+        )}
 
         {state.imagery && (
           <Panel title="Raster metadata" dense>

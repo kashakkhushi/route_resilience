@@ -97,7 +97,11 @@ def score(pred: np.ndarray, gt: np.ndarray, alpha: np.ndarray | None) -> dict:
     """
     p_, r_ = precision_recall(pred, gt)
     row = {"iou": iou(pred, gt), "dice": dice(pred, gt),
-           "precision": p_, "recall": r_, "cldice": cl_dice(pred, gt)["cldice"]}
+           "precision": p_, "recall": r_, "cldice": cl_dice(pred, gt)["cldice"],
+           # Fraction of ALL pixels classified correctly. Reported for
+           # completeness; with ~4% road pixels an empty mask already scores
+           # ~0.96, which is why IoU and clDice are the headline metrics.
+           "pixel_accuracy": float((pred.astype(bool) == gt.astype(bool)).mean())}
 
     gt_b, pred_b = gt.astype(bool), pred.astype(bool)
     if alpha is None:
@@ -173,19 +177,65 @@ def load_model(ckpt_path: Path):
     a = ck.get("args", {})
     name = a.get("model", "unet_r34")
     try:
-        m = build_model(name, a.get("in_channels", 3), encoder_weights=None)
+        m = build_model(name, a.get("in_channels", 3), encoder_weights=None,
+                        hf_config=ck.get("hf_config"))
     except TypeError:
         m = build_model(name, a.get("in_channels", 3))
     m.load_state_dict(ck["model"], strict=True)
     return m.eval(), ck, name
 
 
-def predict(model, image: np.ndarray, device: str, threshold: float,
-            tile: int) -> np.ndarray:
+def predict_prob(model, image: np.ndarray, device: str, tile: int,
+                 tta: bool = False) -> np.ndarray:
     from src.models.inference import predict_scene
 
     return predict_scene(model, image, tile_size=tile, overlap=tile // 4,
-                         device=device, threshold=threshold, tta=False)["mask"]
+                         device=device, threshold=0.5, tta=tta)["prob"]
+
+
+def predict(model, image: np.ndarray, device: str, threshold: float,
+            tile: int, tta: bool = False) -> np.ndarray:
+    return predict_prob(model, image, device, tile, tta) > threshold
+
+
+SWEEP_THRESHOLDS = [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70]
+
+
+def tuned_protocol(model, data: Path, device: str, tile: int, limit: int) -> dict:
+    """Second, clearly separate protocol: test-time augmentation plus a decision
+    threshold chosen on the VALIDATION split only, then applied once to test.
+
+    The test split never influences the threshold, so the tuned test figures are
+    still an honest held-out estimate. The primary protocol (threshold 0.5, no
+    TTA) is reported alongside and is not replaced.
+    """
+    val = load_tiles(data / "val", limit)
+    test = load_tiles(data / "test", limit)
+    if not val or not test:
+        return {"available": False, "reason": "needs both val and test splits"}
+
+    print(f"\n[tuned] threshold sweep on {len(val)} validation tiles (TTA on)")
+    per_t: dict[float, list[float]] = {t: [] for t in SWEEP_THRESHOLDS}
+    for tl in val:
+        prob = predict_prob(model, tl["image"], device, tile, tta=True)
+        for t in SWEEP_THRESHOLDS:
+            per_t[t].append(iou(prob > t, tl["mask"]))
+    sweep = {f"{t:.2f}": round(float(np.mean(v)), 5) for t, v in per_t.items()}
+    best_t = max(SWEEP_THRESHOLDS, key=lambda t: float(np.mean(per_t[t])))
+    for t in SWEEP_THRESHOLDS:
+        mark = "  <- selected" if t == best_t else ""
+        print(f"       threshold {t:.2f}  val IoU {sweep[f'{t:.2f}']}{mark}")
+
+    print(f"\n[tuned] {len(test)} test tiles at threshold {best_t:.2f} (TTA on)")
+    rows = [score(predict(model, tl["image"], device, best_t, tile, tta=True),
+                  tl["mask"], None) for tl in test]
+    agg = aggregate(rows)
+    print(f"       IoU {agg.get('iou')}  Dice {agg.get('dice')}  "
+          f"P {agg.get('precision')}  R {agg.get('recall')}  "
+          f"clDice {agg.get('cldice')}  PixAcc {agg.get('pixel_accuracy')}")
+    return {"available": True, "tta": True, "threshold": best_t,
+            "threshold_selected_on": "validation split (mean per-tile IoU)",
+            "val_iou_by_threshold": sweep, "n_test_tiles": len(test), "test": agg}
 
 
 def main() -> None:
@@ -199,6 +249,9 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=1234)
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--skip-occlusion", action="store_true")
+    ap.add_argument("--skip-classical", action="store_true")
+    ap.add_argument("--tuned", action="store_true",
+                    help="also report TTA + validation-selected threshold on test")
     ap.add_argument("--debug-viz", type=int, default=0,
                     help="save original/occluded/GT/occlusion/overlay panels for "
                          "the first N tiles of each condition")
@@ -275,7 +328,10 @@ def main() -> None:
         report["splits"][split] = {"available": True, "n_tiles": len(tiles), **agg}
         print(f"       IoU {agg.get('iou')}  Dice {agg.get('dice')}  "
               f"P {agg.get('precision')}  R {agg.get('recall')}  "
-              f"clDice {agg.get('cldice')}")
+              f"clDice {agg.get('cldice')}  PixAcc {agg.get('pixel_accuracy')}")
+
+    if a.tuned:
+        report["tuned_protocol"] = tuned_protocol(model, data, device, tile, a.limit)
 
     v, t_ = report["splits"].get("val", {}), report["splits"].get("test", {})
     if v.get("available") and t_.get("available"):
@@ -322,7 +378,8 @@ def main() -> None:
                       f"OccRecall {s.get('occlusion_recall')}")
 
     # ---- 4: classical baseline on identical tiles --------------------
-    tiles = load_tiles(data / "test", a.limit) or load_tiles(data / "val", a.limit)
+    tiles = ([] if a.skip_classical else
+             load_tiles(data / "test", a.limit) or load_tiles(data / "val", a.limit))
     if tiles:
         print(f"\n[classical baseline] {len(tiles)} identical tiles")
         rows = [score(classical_extract(t["image"], pixel_size_m=0.5)["mask"],
@@ -333,7 +390,7 @@ def main() -> None:
         if trained.get("available"):
             report["model_vs_classical"] = {
                 k: round(trained.get(k, 0) - cls.get(k, 0), 5)
-                for k in ("iou", "dice", "precision", "recall", "cldice")
+                for k in ("iou", "dice", "precision", "recall", "cldice", "pixel_accuracy")
             }
             print(f"       classical IoU {cls.get('iou')}  Dice {cls.get('dice')}  "
                   f"clDice {cls.get('cldice')}")
@@ -360,7 +417,7 @@ def render(r: dict) -> str:
          f"- threshold {r['threshold']}  |  tile {r['tile_size']}  |  seed {r['seed']}",
          ""]
 
-    cols = ["iou", "dice", "precision", "recall", "cldice"]
+    cols = ["iou", "dice", "precision", "recall", "cldice", "pixel_accuracy"]
     L += ["## 1-2. Validation and held-out test", "",
           "| split | n | " + " | ".join(cols) + " |",
           "|" + "|".join(["---"] * (len(cols) + 2)) + "|"]
@@ -372,6 +429,19 @@ def render(r: dict) -> str:
         L.append(f"| {sp} | {d['n_tiles']} | " + " | ".join(cell(d, c) for c in cols) + " |")
     if "val_test_iou_gap" in r:
         L += ["", f"val − test IoU gap: **{r['val_test_iou_gap']:+.5f}**"]
+
+    tp = r.get("tuned_protocol") or {}
+    if tp.get("available"):
+        L += ["", "## 1b. Tuned protocol (TTA + validation-selected threshold)", "",
+              f"Threshold **{tp['threshold']:.2f}**, chosen on the validation split "
+              "only, then applied once to the held-out test split. Test-time "
+              "augmentation over 4 flips.", "",
+              "| split | n | " + " | ".join(cols) + " |",
+              "|" + "|".join(["---"] * (len(cols) + 2)) + "|",
+              f"| test (tuned) | {tp['n_test_tiles']} | "
+              + " | ".join(cell(tp["test"], c) for c in cols) + " |", "",
+              "Validation IoU by threshold: "
+              + ", ".join(f"{k}: {v:.4f}" for k, v in tp["val_iou_by_threshold"].items())]
 
     if "occlusion" in r:
         oc = ["iou", "dice", "precision", "recall", "occlusion_recall",
@@ -394,16 +464,16 @@ def render(r: dict) -> str:
     if "classical_baseline" in r:
         cb = r["classical_baseline"]
         tr = r["splits"].get("test", r["splits"].get("val", {}))
-        L += ["", "## 4. Trained U-Net vs classical baseline", "",
+        L += ["", "## 4. Trained model vs classical baseline", "",
               "Identical tiles, identical scoring.", "",
               "| method | " + " | ".join(cols) + " |",
               "|" + "|".join(["---"] * (len(cols) + 1)) + "|",
-              "| trained U-Net | " + " | ".join(cell(tr, c) for c in cols) + " |",
+              "| trained model | " + " | ".join(cell(tr, c) for c in cols) + " |",
               "| classical (Frangi) | " + " | ".join(cell(cb, c) for c in cols) + " |"]
         if "model_vs_classical" in r:
             d = r["model_vs_classical"]
             L += ["", "Difference (trained − classical):", "",
-                  "- " + ",  ".join(f"{k} {d[k]:+.4f}" for k in cols)]
+                  "- " + ",  ".join(f"{k} {d[k]:+.4f}" for k in cols if k in d)]
     return "\n".join(L)
 
 

@@ -45,4 +45,21 @@
            focus:outline-none focus:border-accent-dim;
   }
   .skeleton { @apply animate-pulse bg-base-600/60 rounded; }
+
+  /* Landing-page buttons: dark pill with a soft cyan glow on hover. */
+  .glow-btn {
+    @apply inline-flex items-center gap-2 px-7 py-3 rounded-lg text-sm font-semibold
+           uppercase tracking-[0.14em] text-ink-100 bg-[#0E1E33]/90
+           border border-cyan-300/20 shadow-[0_6px_18px_rgba(0,0,0,0.6)]
+           transition-all duration-200
+           hover:text-white hover:border-cyan-300/60
+           hover:shadow-[0_0_22px_rgba(34,211,238,0.35)];
+  }
+  .footer-link {
+    @apply inline-flex items-center gap-1.5 underline underline-offset-4
+           decoration-ink-500/60 hover:text-white hover:decoration-cyan-300;
+  }
 }
+
+/* Trip Planner: darken standard OpenStreetMap tiles to match the dark UI */
+.rr-dark-tiles { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.35); }

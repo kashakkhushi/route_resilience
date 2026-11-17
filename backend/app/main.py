@@ -22,6 +22,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from backend.app.api.routes.pipeline import VERSION, router  # noqa: E402
+from backend.app.api.routes.plan import router as plan_router  # noqa: E402
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -84,6 +85,7 @@ async def unhandled(request: Request, exc: Exception):
 
 
 app.include_router(router, prefix="/api")
+app.include_router(plan_router, prefix="/api")
 
 
 @app.get("/", tags=["system"])

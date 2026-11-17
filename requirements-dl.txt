@@ -23,9 +23,11 @@
 torch>=2.2,<3.0
 torchvision>=0.17,<1.0
 
-# SegFormer (MiT-B0..B5) lives in transformers. 4.38 is the floor for the
-# SegformerForSemanticSegmentation + ignore_mismatched_sizes path used here.
-transformers>=4.38,<5.0
+# SegFormer (MiT-B0..B5) lives in transformers. Version 5 renamed SegFormer's
+# internal layers (encoder.block -> stages.blocks, ...), so a checkpoint saved
+# under 5.x cannot be loaded under 4.x and vice versa. The released checkpoints
+# were trained on Kaggle with transformers 5.x, hence the floor.
+transformers>=5.0,<6.0
 timm>=0.9,<2.0                            # encoder weights for smp baselines
 segmentation-models-pytorch>=0.3.3,<1.0   # U-Net / UNet++ / DeepLabV3+ baselines
 

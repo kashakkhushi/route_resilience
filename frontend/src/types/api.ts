@@ -68,6 +68,17 @@ export interface SegmentationMetrics {
   recall_visible?: number | null;
   recall_occluded?: number | null;
   occlusion_gap?: number | null;
+  /** where the ground truth came from: demo generator or an uploaded mask */
+  source?: string | null;
+}
+
+export interface GroundTruthResponse {
+  session_id: string;
+  layers: Record<string, string>;
+  road_pixel_fraction: number;
+  source: string;
+  /** present when roads had already been extracted */
+  metrics?: SegmentationMetrics | null;
 }
 
 export interface ExtractResponse {
@@ -243,6 +254,25 @@ export interface RouteResponse {
   note: string;
 }
 
+export interface TripCriticalJunction {
+  node: number;
+  position: number[];
+  cuts_trip: boolean;
+  distance_increase_pct: number | null;
+  /** for a cut: junctions on the smaller side of the split */
+  isolated_junctions?: number | null;
+}
+
+export interface TripWhatIfResponse {
+  session_id: string;
+  original: RouteLeg;
+  junctions_checked: number;
+  critical: TripCriticalJunction[];
+  worst: TripCriticalJunction | null;
+  alternate: RouteLeg | null;
+  note: string;
+}
+
 export type Stage =
   | "idle"
   | "imagery"
@@ -250,3 +280,88 @@ export type Stage =
   | "graph"
   | "criticality"
   | "simulated";
+
+export interface ModelInfo {
+  id: string;
+  label: string;
+  sensor: string;
+  input_gsd_m: number;
+  note: string;
+}
+
+export interface ModelsResponse {
+  default: string | null;
+  models: ModelInfo[];
+}
+
+/* ---------------------------------------------------- coordinate trip planner */
+export type RoadStatus = "verified" | "bridged" | "unverified" | "not_checkable";
+
+export interface TripRoute {
+  reachable: boolean;
+  length_m?: number;
+  time_min?: number;
+  coords?: [number, number][];
+  edges?: number[];
+  verified_length_m?: number;
+  unverified_length_m?: number;
+  bridged_length_m?: number;
+}
+
+export interface TripCriticalRoad {
+  edge: number;
+  name: string | null;
+  class: string;
+  length_m: number;
+  midpoint: [number, number];
+  cuts_trip: boolean;
+  extra_min: number | null;
+  extra_m: number | null;
+  detour_pct: number | null;
+}
+
+export interface Overlay { image: string; bounds: [[number, number], [number, number]]; }
+
+export interface TripCore {
+  route: TripRoute;
+  blocked_edges: number[];
+  critical_roads: TripCriticalRoad[];
+  worst_case?: { edge: number; cuts_trip: boolean; alternate_coords?: [number, number][] | null };
+}
+
+export interface PlanResponse extends TripCore {
+  plan_id: string;
+  bbox: [number, number, number, number];
+  a: { lat: number; lon: number; snapped: [number, number]; snap_m: number };
+  b: { lat: number; lon: number; snapped: [number, number]; snap_m: number };
+  optimise: "time" | "distance";
+  roads: { type: "FeatureCollection"; features: any[] };
+  road_count: number;
+  satellite: {
+    available: boolean;
+    reason?: string;
+    scene?: { id: string; date: string; scene_cloud_pct: number; box_unusable_pct: number;
+              candidates_checked: number; warning: string | null };
+    model?: { architecture: string; epoch: number | null; checkpoint: string; device: string };
+    from_cache?: boolean;
+    fetched_on?: string;
+    counts?: Record<string, number>;
+    overlays?: { satellite: Overlay; model_roads: Overlay };
+    checkable_min_width_m?: number;
+    healing?: { gaps_joined: number; max_gap_m: number; error?: string;
+                geojson?: { type: "FeatureCollection"; features: any[] } };
+    new_roads?: { geojson: { type: "FeatureCollection"; features: any[] }; count: number;
+                  length_km: number; error?: string } | null;
+  };
+  warnings: string[];
+  timings: Record<string, number>;
+  note: string;
+}
+
+export interface RerouteResponse extends TripCore {
+  plan_id: string;
+  normal: TripRoute;
+  compared_to_normal: { extra_min: number; extra_m: number } | null;
+  conditions: { closed: number[]; flood: { lat: number; lon: number; radius_m: number } | null;
+                avoid_unverified: boolean };
+}

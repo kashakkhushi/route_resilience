@@ -8,12 +8,13 @@
  */
 import { useEffect, useState } from "react";
 import {
-  Activity, AlertTriangle, BarChart3, ChevronRight, Crosshair,
-  Image as ImageIcon, Layers, Network, Play, Satellite, ShieldAlert, Waypoints,
+  Activity, AlertTriangle, BarChart3, BookOpen, ChevronRight, Crosshair, Github,
+  Image as ImageIcon, Layers, Network, Play, Satellite, ShieldAlert, Waypoints, Route, Map as MapIcon,
 } from "lucide-react";
 import clsx from "clsx";
 import { usePipeline } from "@/hooks/usePipeline";
 import NetworkCanvas from "@/components/NetworkCanvas";
+import Globe from "@/components/Globe";
 import {
   Chip, Empty, ErrorNote, Metric, Note, Panel, ProvenanceBanner, StatusDot, fmt,
 } from "@/components/ui";
@@ -23,12 +24,16 @@ import CriticalitySection from "@/features/CriticalitySection";
 import StressTestSection from "@/features/StressTestSection";
 import EvaluationSection from "@/features/EvaluationSection";
 import { DemoRunner } from "@/features/DemoRunner";
+import RoutePlannerSection from "@/features/RoutePlannerSection";
+import TripPlannerSection from "@/features/TripPlannerSection";
 
-type Tab = "overview" | "imagery" | "extraction" | "network"
+type Tab = "overview" | "trip" | "planner" | "imagery" | "extraction" | "network"
          | "criticality" | "stress" | "evaluation";
 
 const TABS: { id: Tab; label: string; icon: typeof Layers }[] = [
   { id: "overview",    label: "Overview",        icon: Layers },
+  { id: "trip",        label: "Trip Planner (Map)", icon: MapIcon },
+  { id: "planner",     label: "Image Route Planner", icon: Route },
   { id: "imagery",     label: "Imagery",         icon: ImageIcon },
   { id: "extraction",  label: "Road Extraction", icon: Satellite },
   { id: "network",     label: "Network",         icon: Network },
@@ -47,7 +52,8 @@ export default function App() {
   useEffect(() => { p.checkHealth(); }, []);
 
   if (!launched) {
-    return <Landing health={state.health} onLaunch={() => setLaunched(true)} />;
+    return <Landing health={state.health}
+                    onLaunch={(t) => { if (t) setTab(t); setLaunched(true); }} />;
   }
 
   return (
@@ -99,6 +105,8 @@ export default function App() {
           {tab === "stress" && <StressTestSection p={p} selected={selected}
                                                   onSelect={setSelected} />}
           {tab === "evaluation" && <EvaluationSection p={p} />}
+          {tab === "planner" && <RoutePlannerSection p={p} />}
+          {tab === "trip" && <TripPlannerSection />}
         </main>
       </div>
     </div>
@@ -106,66 +114,113 @@ export default function App() {
 }
 
 /* ------------------------------------------------------------- landing */
-function Landing({ health, onLaunch }: { health: any; onLaunch: () => void }) {
+// Held-out test results of the deployed model (DeepGlobe test split, 498
+// tiles, threshold 0.5, no test-time augmentation). Source: the model's
+// evaluation_report.md; see README "Results". Update here if the model changes.
+const FINAL_RESULTS = {
+  model: "SegFormer-B3 (fine-tuned)",
+  iou: "0.669", dice: "0.792", cldice: "0.868",
+  occludedRecall: "0.55 \u2192 0.89",
+};
+
+function Landing({ health, onLaunch }: { health: any; onLaunch: (t?: Tab) => void }) {
+  const arch = health?.checkpoint_metadata?.architecture;
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6
-                    bg-[radial-gradient(ellipse_at_top,#0F1A26_0%,#080B10_60%)]">
-      <div className="max-w-3xl w-full space-y-8">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Waypoints size={18} className="text-accent" />
-            <span className="label">Urban Infrastructure Intelligence</span>
+    <div className="relative min-h-screen overflow-hidden
+                    bg-[radial-gradient(ellipse_at_70%_50%,#0B2540_0%,#050B16_55%,#02060D_100%)]">
+      <Globe className="absolute inset-0 w-full h-full" />
+
+      <div className="relative z-10 min-h-screen flex flex-col px-6 sm:px-12 lg:px-16 py-10">
+        {/* brand */}
+        <div className="flex items-center gap-3">
+          <Waypoints size={40} className="text-cyan-300 drop-shadow-[0_0_12px_rgba(34,211,238,0.7)]" />
+          <div className="leading-none">
+            <div className="text-3xl sm:text-4xl font-semibold tracking-tight text-white">
+              Route Resilience
+            </div>
+            <div className="text-right text-lg sm:text-xl font-medium text-cyan-300 mt-1">
+              AI
+            </div>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight">
-            Route Resilience <span className="text-accent">AI</span>
-          </h1>
-          <p className="text-ink-300 text-lg">
-            AI-Powered Routable Road Network Intelligence
-          </p>
-          <p className="text-ink-500 max-w-2xl leading-relaxed">
-            Extract roads from satellite imagery, reconstruct missing topology,
-            identify systemic bottlenecks, and simulate the network-wide impact
-            of road failures.
-          </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {[
-            ["Processed area", "\u2014"], ["Roads extracted", "\u2014"],
-            ["Network nodes", "\u2014"], ["Critical links", "\u2014"],
-            ["Network resilience", "\u2014"],
-          ].map(([l, v]) => (
-            <div key={l} className="panel p-3">
-              <Metric label={l} value={v} size="sm" />
-            </div>
-          ))}
-          <div className="panel p-3">
-            <div className="label">Model status</div>
-            <div className="mt-1.5">
+        {/* glance card */}
+        <div className="mt-10 lg:mt-14 max-w-2xl rounded-2xl border border-cyan-300/15
+                        bg-[#0A1A2E]/55 backdrop-blur-md shadow-[0_20px_60px_rgba(0,0,0,0.55)]
+                        p-6 sm:p-8">
+          <div className="flex items-center gap-3 mb-5">
+            <BookOpen size={26} className="text-ink-300" />
+            <h2 className="text-xl font-semibold text-white">Project Glance:</h2>
+          </div>
+
+          <ul className="space-y-3 text-[15px] sm:text-base leading-relaxed text-ink-300
+                         list-disc pl-6 marker:text-cyan-300/70">
+            <li>
+              Extracts road networks from satellite imagery, including roads hidden
+              under <span className="text-white font-medium">trees, shadows and vehicles</span>.
+            </li>
+            <li>
+              Repairs broken roads into a routable graph, finds the
+              <span className="text-white font-medium"> critical intersections</span>, and
+              simulates floods, closures and failures.
+            </li>
+            <li>
+              Final model: <span className="text-white font-semibold">{FINAL_RESULTS.model}</span>.
+              Test IoU <span className="text-cyan-300 font-semibold">{FINAL_RESULTS.iou}</span>,
+              Dice <span className="text-cyan-300 font-semibold">{FINAL_RESULTS.dice}</span>,
+              clDice <span className="text-cyan-300 font-semibold">{FINAL_RESULTS.cldice}</span>
+              {" "}on 498 held-out DeepGlobe tiles.
+            </li>
+            <li>
+              Occlusion training: recall on hidden roads under clutter{" "}
+              <span className="text-cyan-300 font-semibold">{FINAL_RESULTS.occludedRecall}</span>.
+            </li>
+            <li className="flex flex-wrap items-center gap-2">
+              Model status:
               {health ? (
                 <Chip tone={health.checkpoint_found ? "accent" : "warn"}>
-                  {health.checkpoint_found ? "Trained checkpoint" : "No checkpoint"}
+                  {health.checkpoint_found
+                    ? `Trained checkpoint${arch ? ` \u00b7 ${arch}` : ""}`
+                    : "No checkpoint"}
                 </Chip>
-              ) : <div className="skeleton h-5 w-24" />}
-            </div>
+              ) : <span className="skeleton h-5 w-28 inline-block" />}
+            </li>
+          </ul>
+
+          <p className="mt-5 text-sm text-ink-500 leading-relaxed">
+            Note: results above are measured on the DeepGlobe test split (0.5&nbsp;m
+            imagery). Accuracy on other sensors has not been measured yet.
+          </p>
+
+          {health && !health.checkpoint_found && (
+            <div className="mt-4"><Note tone="warn">{health.notes}</Note></div>
+          )}
+
+          <div className="mt-7 flex flex-wrap gap-4">
+            <button onClick={() => onLaunch("overview")} className="glow-btn">
+              Launch Dashboard <ChevronRight size={16} />
+            </button>
+            <button onClick={() => onLaunch("trip")} className="glow-btn">
+              Plan a Trip
+            </button>
+            <button onClick={() => onLaunch("evaluation")} className="glow-btn">
+              View Results
+            </button>
           </div>
         </div>
 
-        {health && !health.checkpoint_found && (
-          <Note tone="warn">
-            {health.notes}
-          </Note>
-        )}
-
-        <button onClick={onLaunch} className="btn-primary text-base px-5 py-2.5">
-          Launch Urban Digital Twin <ChevronRight size={16} />
-        </button>
-
-        <p className="text-[11px] text-ink-500 leading-relaxed max-w-2xl">
-          Statistics populate from real computation once a study area is loaded.
-          They are shown as em dashes until then rather than pre-filled with
-          example values.
-        </p>
+        {/* footer */}
+        <div className="mt-auto pt-10 flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-300">
+          <a className="footer-link" href="http://127.0.0.1:8000/docs" target="_blank" rel="noreferrer">
+            <BookOpen size={15} /> API Docs
+          </a>
+          <a className="footer-link" href="https://github.com/kashakkhushi/route_resilience"
+             target="_blank" rel="noreferrer">
+            <Github size={15} /> GitHub
+          </a>
+          <span className="footer-link"><Satellite size={15} /> DeepGlobe Road Extraction</span>
+          <span className="footer-link"><ShieldAlert size={15} /> VIT-AP Capstone 2026&ndash;27</span>
+        </div>
       </div>
     </div>
   );

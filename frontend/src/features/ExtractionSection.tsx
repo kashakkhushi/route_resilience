@@ -2,8 +2,9 @@
  * Road extraction. Shows before/after and the real metrics - or an explicit
  * "ground truth unavailable" state. Metrics are never invented.
  */
-import { useState } from "react";
-import { Play, Satellite } from "lucide-react";
+import { useRef, useState } from "react";
+import { Play, Satellite, Upload } from "lucide-react";
+import ModelPicker from "@/components/ModelPicker";
 import {
   Empty, Metric, Note, Panel, ProvenanceBanner, UnavailableMetric, fmt,
 } from "@/components/ui";
@@ -13,6 +14,8 @@ export default function ExtractionSection({ p }: any) {
   const [mode, setMode] = useState<"auto" | "demo" | "classical">("auto");
   const isDemo = state.imagery?.meta?.source?.startsWith("DEMO:");
   const m = state.extract?.metrics;
+  const gtRef = useRef<HTMLInputElement>(null);
+  const [model, setModel] = useState<string | null>(null);
 
   return (
     <div className="flex-1 grid grid-cols-12 gap-3 min-h-0">
@@ -50,9 +53,10 @@ export default function ExtractionSection({ p }: any) {
                 </button>
               ))}
             </div>
+            {mode === "auto" && <ModelPicker value={model} onChange={(id) => setModel(id)} />}
             <button className="btn-primary w-full justify-center"
                     disabled={!state.imagery || !!state.busy}
-                    onClick={() => p.extract(mode)}>
+                    onClick={() => p.extract(mode, mode === "auto" ? model : null)}>
               <Play size={14} /> Run extraction
             </button>
           </div>
@@ -77,6 +81,9 @@ export default function ExtractionSection({ p }: any) {
                     <Metric size="sm" label="Relaxed IoU" value={fmt.n(m.relaxed_iou, 3)}
                             hint="4 px tolerance buffer" />
                   </div>
+                  {m.source && (
+                    <p className="text-[10px] text-ink-500 mt-2">Ground truth: {m.source}</p>
+                  )}
                   {m.recall_occluded !== null && m.recall_occluded !== undefined && (
                     <div className="mt-3 pt-3 border-t border-line-soft grid grid-cols-3 gap-3">
                       <Metric size="sm" label="Recall visible" value={fmt.n(m.recall_visible, 3)} />
@@ -99,6 +106,18 @@ export default function ExtractionSection({ p }: any) {
                       <strong>Ground truth unavailable.</strong> {m?.reason}
                     </Note>
                   </div>
+                  {!isDemo && (
+                    <>
+                      <input ref={gtRef} type="file" accept=".png,.tif,.tiff,.jpg,.jpeg"
+                             className="hidden"
+                             onChange={(e) => { const f = e.target.files?.[0];
+                                                if (f) p.uploadGroundTruth(f); e.target.value = ""; }} />
+                      <button className="btn-ghost w-full justify-center mt-3"
+                              disabled={!!state.busy} onClick={() => gtRef.current?.click()}>
+                        <Upload size={14} /> Upload ground-truth mask
+                      </button>
+                    </>
+                  )}
                 </>
               )}
             </Panel>

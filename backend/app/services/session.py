@@ -59,6 +59,7 @@ class Session:
     gt_mask: np.ndarray | None = None
     occlusion: np.ndarray | None = None
     gt_graph: nx.Graph | None = None
+    gt_source: str | None = None        # "demo generator" or the uploaded file name
 
     # extraction
     prob: np.ndarray | None = None

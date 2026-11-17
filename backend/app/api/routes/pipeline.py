@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 
 import numpy as np
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from src.analytics.criticality import network_statistics, rank_critical_edges
 from src.analytics.resilience import resilience_index_aspl
@@ -27,12 +27,16 @@ from ...schemas.models import (
     ExtractRequest,
     ExtractResponse,
     GraphResponse,
+    GroundTruthResponse,
     HealRequest,
     HealthResponse,
     ImageryResponse,
     LoadDemoRequest,
+    ModelsResponse,
     RouteRequest,
     RouteResponse,
+    TripWhatIfRequest,
+    TripWhatIfResponse,
     SimulateRequest,
     SimulateResponse,
 )
@@ -42,6 +46,7 @@ from ...services.model_registry import (
     PROVENANCE,
     capability_report,
     extract_roads,
+    list_checkpoints,
 )
 from ...services.session import (
     STORE,
@@ -68,11 +73,32 @@ def _need(sid: str, stage: str = "session"):
     return s
 
 
+def _metrics(s) -> dict:
+    """Segmentation metrics ONLY when ground truth genuinely exists."""
+    if s.gt_mask is not None and s.mask is not None:
+        m = evaluate_mask(s.mask, s.gt_mask, s.occlusion, buffer_px=4)
+        return {"available": True, "source": s.gt_source, **{k: m.get(k) for k in (
+            "iou", "dice", "precision", "recall", "cldice", "relaxed_iou",
+            "recall_visible", "recall_occluded", "occlusion_gap")}}
+    return {
+        "available": False,
+        "reason": ("No ground truth for this scene. Upload the matching ground-truth "
+                   "mask (e.g. DeepGlobe *_mask.png) in Imagery, load a demo city, or "
+                   "run scripts/prepare_groundtruth.py for georeferenced imagery."),
+    }
+
+
 # ------------------------------------------------------------------ health
 @router.get("/health", response_model=HealthResponse, tags=["system"])
 def health():
     cap = capability_report()
     return HealthResponse(version=VERSION, **cap)
+
+
+@router.get("/models", response_model=ModelsResponse, tags=["system"])
+def models():
+    """Checkpoints available for extraction (DeepGlobe, Sentinel-2, LISS-IV ...)."""
+    return ModelsResponse(**list_checkpoints())
 
 
 # ------------------------------------------------------------------ imagery
@@ -89,6 +115,7 @@ def load_demo(req: LoadDemoRequest):
 
     s.image = city["image"]
     s.gt_mask = city["mask"]
+    s.gt_source = "synthetic generator (exact)"
     s.pixel_size_m = 2.0
     s.source = f"DEMO:{req.city.value}"
     s.seed = req.seed
@@ -123,7 +150,8 @@ def load_demo(req: LoadDemoRequest):
 
 
 @router.post("/imagery/upload", response_model=ImageryResponse, tags=["imagery"])
-async def upload(file: UploadFile = File(...)):
+async def upload(file: UploadFile = File(...),
+                 pixel_size_m: float | None = Form(None)):
     """Accept a GeoTIFF or ordinary raster.
 
     GeoTIFF requires rasterio; when it is absent we say so rather than failing
@@ -172,7 +200,10 @@ async def upload(file: UploadFile = File(...)):
             raise HTTPException(422, detail="Unsupported or corrupted image file.")
         img = cv2.cvtColor(a, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
         bounds, crs, georef = None, None, False
-        s.pixel_size_m = 1.0
+        # An ordinary image carries no scale. The caller may state it (DeepGlobe
+        # is 0.5 m/px); otherwise 1 m/px is assumed and reported as such.
+        s.pixel_size_m = (float(pixel_size_m)
+                          if pixel_size_m and 0.05 <= pixel_size_m <= 100 else 1.0)
 
     if img.shape[0] < 64 or img.shape[1] < 64:
         raise HTTPException(422, detail="Image too small: minimum 64x64 pixels.")
@@ -190,6 +221,52 @@ async def upload(file: UploadFile = File(...)):
         },
         layers={"original": to_png_data_uri(img)},
         provenance=None,
+    )
+
+
+@router.post("/imagery/{session_id}/ground-truth", response_model=GroundTruthResponse,
+             tags=["imagery"])
+async def upload_ground_truth(session_id: str, file: UploadFile = File(...)):
+    """Attach a reference road mask (e.g. DeepGlobe ``*_mask.png``) to an uploaded scene.
+
+    The mask must have exactly the image's dimensions; it is never resized, so a
+    mismatched pair is rejected instead of being scored against the wrong pixels.
+    Pixels brighter than 50 % grey count as road. If roads were already extracted,
+    metrics are returned immediately; otherwise they appear on the next extraction.
+    """
+    import cv2
+
+    s = _need(session_id)
+    if s.image is None:
+        raise HTTPException(409, detail="Upload the satellite image first.")
+    if s.source.startswith("DEMO:"):
+        raise HTTPException(422, detail="Demo scenes already carry exact ground truth.")
+    raw = await file.read()
+    if len(raw) > 60 * 1024 * 1024:
+        raise HTTPException(413, detail="Mask exceeds the 60 MB upload limit.")
+    a = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_GRAYSCALE)
+    if a is None:
+        raise HTTPException(422, detail="Unsupported or corrupted mask file (use PNG).")
+    h, w = s.image.shape[:2]
+    if a.shape != (h, w):
+        raise HTTPException(
+            422,
+            detail=(f"Mask is {a.shape[1]}x{a.shape[0]} but the image is {w}x{h}. "
+                    "Upload the mask that belongs to this image (same tile number)."),
+        )
+    gt = a > 127
+    if not gt.any():
+        raise HTTPException(422, detail="The mask contains no road pixels.")
+
+    s.gt_mask = gt
+    s.gt_source = f"uploaded mask ({file.filename or 'mask'})"
+    s.gt_graph = None
+    return GroundTruthResponse(
+        session_id=s.id,
+        layers={"ground_truth": to_png_data_uri(gt, cmap="roads")},
+        road_pixel_fraction=float(gt.mean()),
+        source=s.gt_source,
+        metrics=_metrics(s) if s.mask is not None else None,
     )
 
 
@@ -219,9 +296,12 @@ def extract(req: ExtractRequest):
         # An explicit "classical" request must be honoured even when a trained
         # checkpoint exists, otherwise the side-by-side comparison in the demo
         # silently runs the model twice and labels both TRAINED_MODEL.
-        out = extract_roads(s.image, s.pixel_size_m, req.threshold,
-                            prefer_neural=(req.mode != "classical"),
-                            road_width_m=req.road_width_m)
+        try:
+            out = extract_roads(s.image, s.pixel_size_m, req.threshold,
+                                prefer_neural=(req.mode != "classical"),
+                                road_width_m=req.road_width_m, model_id=req.model)
+        except FileNotFoundError as e:
+            raise HTTPException(422, detail=str(e))
     s.prob, s.mask = out["prob"], out["mask"]
     s.evidence = out.get("evidence", out["prob"])
     s.provenance = out["provenance"]
@@ -235,19 +315,7 @@ def extract(req: ExtractRequest):
                     "threshold or check that the imagery contains visible roads."),
         )
 
-    # Metrics ONLY when ground truth genuinely exists.
-    if s.gt_mask is not None:
-        m = evaluate_mask(s.mask, s.gt_mask, s.occlusion, buffer_px=4)
-        metrics = {"available": True, **{k: m.get(k) for k in (
-            "iou", "dice", "precision", "recall", "cldice", "relaxed_iou",
-            "recall_visible", "recall_occluded", "occlusion_gap")}}
-    else:
-        metrics = {
-            "available": False,
-            "reason": ("No ground truth for this scene. Load a demo city, or run "
-                       "scripts/prepare_groundtruth.py to generate OpenStreetMap "
-                       "reference masks for georeferenced imagery."),
-        }
+    metrics = _metrics(s)
 
     return ExtractResponse(
         session_id=s.id,
@@ -467,29 +535,7 @@ def route(req: RouteRequest):
                   removed_edges=[tuple(e) for e in req.disabled_edges
                                  if G.has_edge(*e)])
     rr = alternate_route(G, sc, req.source, req.target)
-    mps = req.speed_kmh * 1000 / 60.0        # metres per minute
-
-    def leg(path, dist):
-        if path is None or dist is None or not np.isfinite(dist):
-            return {"reachable": False, "path": None, "distance_m": None,
-                    "travel_time_min": None, "geojson": None}
-        coords = []
-        for a, b in zip(path[:-1], path[1:]):
-            d = G[a][b]
-            pts = d.get("pts")
-            if pts is not None and len(pts) > 1:
-                coords += [[float(c), float(-r)] for r, c in pts]
-            else:
-                pa, pb = G.nodes[a]["pos"], G.nodes[b]["pos"]
-                coords += [[float(pa[1]), float(-pa[0])], [float(pb[1]), float(-pb[0])]]
-        return {
-            "reachable": True, "path": [int(x) for x in path],
-            "distance_m": round(float(dist), 1),
-            "travel_time_min": round(float(dist) / mps, 2),
-            "geojson": {"type": "Feature",
-                        "geometry": {"type": "LineString", "coordinates": coords},
-                        "properties": {}},
-        }
+    leg = lambda path, dist: _leg(G, path, dist, req.speed_kmh)  # noqa: E731
 
     o = leg(rr["original_path"], rr["original_length_m"])
     d = leg(rr["alternate_path"], rr["alternate_length_m"])
@@ -505,4 +551,113 @@ def route(req: RouteRequest):
               f"{req.speed_kmh} km/h across all road classes, because road class and "
               "speed limits are not available from segmentation alone. Distance "
               "figures are measured; time figures are derived from that assumption."),
+    )
+
+
+def _leg(G, path, dist, speed_kmh: float) -> dict:
+    """A route as the frontend draws it: node path, length, time, geometry."""
+    mps = speed_kmh * 1000 / 60.0        # metres per minute
+    if path is None or dist is None or not np.isfinite(dist):
+        return {"reachable": False, "path": None, "distance_m": None,
+                "travel_time_min": None, "geojson": None}
+    coords = []
+    for a, b in zip(path[:-1], path[1:]):
+        d = G[a][b]
+        pts = d.get("pts")
+        if pts is not None and len(pts) > 1:
+            seg = [[float(c), float(-r)] for r, c in pts]
+            pa = G.nodes[a]["pos"]                      # (row, col)
+            start = [float(pa[1]), float(-pa[0])]
+            dist2 = lambda p: (p[0] - start[0]) ** 2 + (p[1] - start[1]) ** 2  # noqa: E731
+            if dist2(seg[0]) > dist2(seg[-1]):          # trace stored b -> a
+                seg.reverse()
+            coords += seg
+        else:
+            pa, pb = G.nodes[a]["pos"], G.nodes[b]["pos"]
+            coords += [[float(pa[1]), float(-pa[0])], [float(pb[1]), float(-pb[0])]]
+    return {
+        "reachable": True, "path": [int(x) for x in path],
+        "distance_m": round(float(dist), 1),
+        "travel_time_min": round(float(dist) / mps, 2),
+        "geojson": {"type": "Feature",
+                    "geometry": {"type": "LineString", "coordinates": coords},
+                    "properties": {}},
+    }
+
+
+@router.post("/route/what-if", response_model=TripWhatIfResponse, tags=["analysis"])
+def trip_what_if(req: TripWhatIfRequest):
+    """Which junction on THIS trip hurts most if it fails?
+
+    Every intermediate junction on the shortest A->B route is closed on its own
+    and the trip is re-planned. A junction whose closure leaves no route is a
+    single point of failure for the trip; otherwise junctions are ranked by how
+    much longer the trip becomes. Exact: one shortest-path per junction."""
+    import networkx as nx
+
+    from src.analytics.simulation import _weight_key
+
+    s = _need(req.session_id)
+    if s.graph is None:
+        raise HTTPException(409, detail="Build the graph before routing.")
+    G = s.graph
+    for n in (req.source, req.target):
+        if n not in G:
+            raise HTTPException(422, detail=f"Node {n} is not in the network.")
+    if req.source == req.target:
+        raise HTTPException(422, detail="Origin and destination must differ.")
+    w = _weight_key(G)
+    try:
+        path = nx.shortest_path(G, req.source, req.target, weight=w)
+        base = nx.shortest_path_length(G, req.source, req.target, weight=w)
+    except nx.NetworkXNoPath:
+        raise HTTPException(422, detail="A and B are not connected in this network: "
+                                        "they lie on separate road pieces.")
+    original = _leg(G, path, base, req.speed_kmh)
+
+    def pos(n):
+        p = G.nodes[n]["pos"]
+        return [float(p[1]), float(-p[0])]
+
+    found = []
+    for n in path[1:-1]:
+        H = nx.subgraph_view(G, filter_node=lambda x, n=n: x != n)
+        try:
+            d = nx.shortest_path_length(H, req.source, req.target, weight=w)
+            found.append({"node": int(n), "position": pos(n), "cuts_trip": False,
+                          "distance_increase_pct": round(100 * (d - base) / max(base, 1e-6), 1)})
+        except nx.NetworkXNoPath:
+            # Several junctions can cut the trip (e.g. every junction on a
+            # dead-end street leading to A). Rank them by how much network
+            # they split off - the smaller side of the cut - so a river bridge
+            # outranks the corner next to a cul-de-sac.
+            side_a = len(nx.node_connected_component(H, req.source))
+            side_b = len(nx.node_connected_component(H, req.target))
+            found.append({"node": int(n), "position": pos(n), "cuts_trip": True,
+                          "distance_increase_pct": None,
+                          "isolated_junctions": int(min(side_a, side_b))})
+    found.sort(key=lambda j: (not j["cuts_trip"], -j.get("isolated_junctions", 0),
+                              -(j["distance_increase_pct"] or 0)))
+    worst = found[0] if found else None
+    alternate = None
+    if worst is not None:
+        if worst["cuts_trip"]:
+            alternate = _leg(G, None, None, req.speed_kmh)
+        else:
+            H = nx.subgraph_view(G, filter_node=lambda x: x != worst["node"])
+            p2 = nx.shortest_path(H, req.source, req.target, weight=w)
+            alternate = _leg(G, p2, nx.shortest_path_length(H, req.source, req.target, weight=w),
+                             req.speed_kmh)
+    note = ("Each junction on the route was closed on its own and the trip re-planned "
+            "on the extracted network. Distances are measured on the graph; times assume "
+            f"a uniform {req.speed_kmh:g} km/h.")
+    ends = [lbl for lbl, n in (("A", req.source), ("B", req.target)) if G.degree(n) == 1]
+    if ends:
+        note += (f" {' and '.join(ends)} {'is' if len(ends) == 1 else 'are'} at the end of a "
+                 "dead-end road in the extracted network (only one road reaches it), so the "
+                 "junction next to it always cuts the trip. For a fairer test pick junctions "
+                 "where two or more roads meet.")
+    return TripWhatIfResponse(
+        session_id=s.id, original=original, junctions_checked=len(found),
+        critical=found[: req.top], worst=worst, alternate=alternate, note=note,
     )

@@ -6,6 +6,9 @@
  * error, it does not fall back to canned data that would look like a result.
  */
 import type {
+  ModelsResponse,
+  PlanResponse,
+  RerouteResponse,
   CriticalityResponse,
   ExtractResponse,
   GraphResponse,
@@ -14,6 +17,8 @@ import type {
   RouteResponse,
   ScenarioKind,
   SimulateResponse,
+  GroundTruthResponse,
+  TripWhatIfResponse,
 } from "@/types/api";
 
 const BASE = "/api";
@@ -66,14 +71,33 @@ const post = <T>(path: string, body: unknown) =>
 
 export const api = {
   health: () => req<Health>("/health"),
+  models: () => req<ModelsResponse>("/models"),
+
+  plan: (p: { a: { lat: number; lon: number }; b: { lat: number; lon: number };
+              satellite: boolean; refresh?: boolean; optimise: "time" | "distance" }) =>
+    post<PlanResponse>("/plan", p),
+
+  reroute: (id: string, p: { closed: number[];
+                             flood: { lat: number; lon: number; radius_m: number } | null;
+                             avoid_unverified: boolean }) =>
+    post<RerouteResponse>(`/plan/${id}/reroute`, p),
 
   loadDemo: (p: { city: string; size: number; seed: number; occlusion: boolean }) =>
     post<ImageryResponse>("/imagery/demo", p),
 
-  upload: (file: File) => {
+  upload: (file: File, pixel_size_m?: number) => {
     const fd = new FormData();
     fd.append("file", file);
+    // Only used for non-georeferenced images; a GeoTIFF's own GSD always wins.
+    if (pixel_size_m) fd.append("pixel_size_m", String(pixel_size_m));
     return req<ImageryResponse>("/imagery/upload", { method: "POST", body: fd });
+  },
+
+  uploadGroundTruth: (sessionId: string, file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return req<GroundTruthResponse>(`/imagery/${sessionId}/ground-truth`,
+                                    { method: "POST", body: fd });
   },
 
   extract: (p: {
@@ -81,6 +105,7 @@ export const api = {
     mode?: "auto" | "demo" | "classical" | null;
     threshold?: number | null;
     road_width_m?: number;
+    model?: string | null;
   }) => post<ExtractResponse>("/extract-roads", p),
 
   buildGraph: (p: {
@@ -115,4 +140,7 @@ export const api = {
     disabled_edges?: number[][];
     speed_kmh?: number;
   }) => post<RouteResponse>("/route", p),
+
+  tripWhatIf: (p: { session_id: string; source: number; target: number; top?: number }) =>
+    post<TripWhatIfResponse>("/route/what-if", p),
 };

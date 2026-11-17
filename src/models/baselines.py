@@ -165,13 +165,18 @@ def build_model(name: str, in_channels: int = 3, aux_occlusion_head: bool = True
         unet_r34 | unetpp_r34 | deeplabv3plus_r50 | segformer_b0..b5 | simple_unet
     """
     n = name.lower()
+    # hf_config only concerns SegFormer; accepted (and ignored) for every other
+    # architecture so callers can pass ckpt.get("hf_config") unconditionally.
+    hf_config = kw.pop("hf_config", None)
     if n == "simple_unet":
         return SimpleUNet(in_channels, aux_occlusion_head=aux_occlusion_head, **kw)
     if n.startswith("segformer"):
         from .segformer import RoadSegFormer
 
         variant = n.split("_")[-1] if "_" in n else "b3"
-        return RoadSegFormer(f"nvidia/mit-{variant}", in_channels, aux_occlusion_head)
+        enc_w = kw.pop("encoder_weights", "imagenet")
+        return RoadSegFormer(f"nvidia/mit-{variant}", in_channels, aux_occlusion_head,
+                             load_pretrained=enc_w is not None, hf_config=hf_config)
 
     arch_map = {"unet": "unet", "unetpp": "unetplusplus",
                 "deeplabv3plus": "deeplabv3plus", "fpn": "fpn"}

@@ -84,6 +84,9 @@ class ExtractRequest(SessionRef):
     )
     threshold: float | None = Field(None, ge=0.01, le=0.99)
     road_width_m: float = Field(8.0, gt=0, le=60)
+    model: str | None = Field(
+        None, max_length=300,
+        description="Checkpoint id from GET /api/models. Omit for the server default.")
 
     @field_validator("threshold")
     @classmethod
@@ -105,6 +108,7 @@ class SegmentationMetrics(BaseModel):
     recall_visible: float | None = None
     recall_occluded: float | None = None
     occlusion_gap: float | None = None
+    source: str | None = Field(None, description="where the ground truth came from")
 
 
 class ExtractResponse(SessionRef):
@@ -316,8 +320,56 @@ class RouteResponse(SessionRef):
     note: str
 
 
+class TripWhatIfRequest(SessionRef):
+    source: int
+    target: int
+    top: int = Field(5, ge=1, le=20)
+    speed_kmh: float = Field(30.0, gt=0, le=150)
+
+
+class TripCriticalJunction(BaseModel):
+    node: int
+    position: list[float]           # [x, -y] in the network canvas convention
+    cuts_trip: bool
+    distance_increase_pct: float | None
+    isolated_junctions: int | None = Field(
+        None, description="for a cut: junctions on the smaller side of the split")
+
+
+class TripWhatIfResponse(SessionRef):
+    original: RouteLeg
+    junctions_checked: int
+    critical: list[TripCriticalJunction]
+    worst: TripCriticalJunction | None
+    alternate: RouteLeg | None      # route with the worst junction closed
+    note: str
+
+
 # ------------------------------------------------------------------ errors
 class ErrorResponse(BaseModel):
     error: str
     detail: str
     hint: str | None = None
+
+
+class GroundTruthResponse(SessionRef):
+    """Result of attaching a user-supplied ground-truth mask to a session."""
+
+    layers: dict[str, str]
+    road_pixel_fraction: float
+    source: str
+    metrics: SegmentationMetrics | None = Field(
+        None, description="present when a road mask had already been extracted")
+
+
+class ModelInfo(BaseModel):
+    id: str
+    label: str
+    sensor: str
+    input_gsd_m: float
+    note: str
+
+
+class ModelsResponse(BaseModel):
+    default: str | None
+    models: list[ModelInfo]

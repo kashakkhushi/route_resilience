@@ -106,16 +106,50 @@ class OcclusionWeightedBCE(nn.Module):
         return (loss * w).sum() / w.sum().clamp(min=1.0)
 
 
+def _lovasz_grad(gt_sorted: torch.Tensor) -> torch.Tensor:
+    """Gradient of the Lovasz extension of the Jaccard loss (Berman et al., 2018)."""
+    gts = gt_sorted.sum()
+    intersection = gts - gt_sorted.cumsum(0)
+    union = gts + (1.0 - gt_sorted).cumsum(0)
+    jaccard = 1.0 - intersection / union
+    if gt_sorted.numel() > 1:
+        jaccard[1:] = jaccard[1:] - jaccard[:-1]
+    return jaccard
+
+
+class LovaszHingeLoss(nn.Module):
+    """Lovasz hinge loss: a convex surrogate that optimises IoU directly.
+
+    Berman, Triki & Blaschko, "The Lovasz-Softmax loss", CVPR 2018. BCE and Dice
+    are proxies for IoU; this term targets the evaluation metric itself.
+    Computed per image, then averaged over the batch.
+    """
+
+    def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        losses = []
+        for lg, tg in zip(logits, target):
+            lg, tg = lg.reshape(-1).float(), tg.reshape(-1).float()
+            signs = 2.0 * tg - 1.0
+            errors = 1.0 - lg * signs
+            errors_sorted, perm = torch.sort(errors, descending=True)
+            grad = _lovasz_grad(tg[perm])
+            losses.append(torch.dot(F.relu(errors_sorted), grad))
+        return torch.stack(losses).mean()
+
+
 class RoadLoss(nn.Module):
     """The full objective wired together, including the auxiliary occlusion head."""
 
     def __init__(self, w_bce=1.0, w_dice=1.0, w_cldice=0.5, w_occ=0.3,
-                 cldice_warmup_epochs: int = 5):
+                 cldice_warmup_epochs: int = 5, w_lovasz: float = 0.0,
+                 pos_weight: float = 8.0):
         super().__init__()
-        self.bce = OcclusionWeightedBCE()
+        self.bce = OcclusionWeightedBCE(pos_weight=pos_weight)
         self.dice = SoftDiceLoss()
         self.cldice = SoftCLDiceLoss()
-        self.w = dict(bce=w_bce, dice=w_dice, cldice=w_cldice, occ=w_occ)
+        # Off by default, so every existing run and checkpoint is unaffected.
+        self.lovasz = LovaszHingeLoss() if w_lovasz > 0 else None
+        self.w = dict(bce=w_bce, dice=w_dice, cldice=w_cldice, occ=w_occ, lovasz=w_lovasz)
         self.warmup = cldice_warmup_epochs
 
     def forward(self, outputs: dict, target: torch.Tensor,
@@ -130,6 +164,8 @@ class RoadLoss(nn.Module):
             "dice": self.w["dice"] * self.dice(logits, target),
             "cldice": self.w["cldice"] * cl_scale * self.cldice(logits, target),
         }
+        if self.lovasz is not None:
+            parts["lovasz"] = self.w["lovasz"] * self.lovasz(logits, target)
         if occlusion is not None and "occlusion_logits" in outputs:
             parts["occ"] = self.w["occ"] * F.binary_cross_entropy_with_logits(
                 outputs["occlusion_logits"], occlusion

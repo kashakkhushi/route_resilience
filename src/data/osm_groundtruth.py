@@ -59,6 +59,56 @@ def raster_bounds_wgs84(raster_path: str | Path) -> tuple:
         return transform_bounds(src.crs, "EPSG:4326", *src.bounds, densify_pts=21)
 
 
+# Public Overpass servers (the service osmnx downloads OSM data from). The main
+# one is often "at capacity" (HTTP 502/504/429); the others are independent
+# mirrors of the same data. Tried in order, each twice with a pause.
+OVERPASS_SERVERS = (
+    "https://overpass-api.de/api",
+    "https://overpass.kumi.systems/api",
+    "https://overpass.private.coffee/api",
+    "https://maps.mail.ru/osm/tools/overpass/api",
+)
+OVERPASS_WAITS_S = (0, 8)
+
+
+def _graph_from_bbox_any_server(bbox: tuple, network_type: str):
+    """ox.graph_from_bbox, retried on every Overpass server until one answers."""
+    import time
+
+    import osmnx as ox
+
+    saved = (ox.settings.overpass_url, ox.settings.overpass_rate_limit,
+             ox.settings.requests_timeout)
+    errors: dict = {}
+    try:
+        ox.settings.requests_timeout = 180
+        for url in OVERPASS_SERVERS:
+            ox.settings.overpass_url = url
+            # Only the main server has the /status endpoint osmnx uses for
+            # rate limiting; on mirrors that check itself fails.
+            ox.settings.overpass_rate_limit = url == OVERPASS_SERVERS[0]
+            for wait in OVERPASS_WAITS_S:
+                if wait:
+                    time.sleep(wait)
+                try:
+                    return ox.graph_from_bbox(bbox=bbox, network_type=network_type,
+                                              simplify=True, retain_all=True)
+                except Exception as e:         # busy, timeout, connection error
+                    text = str(e)
+                    # osmnx reports HTTP errors as ValueError subclasses too, so
+                    # only a genuinely empty area stops the retries.
+                    if "no graph nodes" in text or "No data elements" in text:
+                        raise
+                    host = url.split("/")[2]
+                    errors[host] = f"{host}: {type(e).__name__} {text.split(chr(10))[0][:100]}"
+    finally:
+        (ox.settings.overpass_url, ox.settings.overpass_rate_limit,
+         ox.settings.requests_timeout) = saved
+    raise ConnectionError(
+        "every OpenStreetMap (Overpass) server was busy or unreachable - try again in a "
+        "minute. Tried: " + "; ".join(errors.values()))
+
+
 def download_osm_roads(bounds_wgs84: tuple, network_type: str = "drive",
                        cache_dir: str | Path = "data/osm", tag: str = ""):
     """Fetch the OSM drive network for a bounding box, with on-disk caching.
@@ -77,15 +127,16 @@ def download_osm_roads(bounds_wgs84: tuple, network_type: str = "drive",
     cache = cache_dir / f"osm_{key}.gpkg"
 
     if cache.exists():
-        return gpd.read_file(cache, layer="edges")
+        cached = gpd.read_file(cache, layer="edges")
+        if "u" in cached.columns and "v" in cached.columns:
+            return cached
+        cache.unlink()          # old file saved without node ids: download again
 
-    G = ox.graph_from_bbox(bbox=(w, s, e, n), network_type=network_type,
-                           simplify=True, retain_all=True)
-    edges = ox.graph_to_gdfs(G, nodes=False, edges=True)
-    edges = edges.reset_index()[
-        [c for c in ("u", "v", "key", "highway", "name", "lanes", "geometry")
-         if c in edges.columns or c == "geometry"]
-    ]
+    G = _graph_from_bbox_any_server((w, s, e, n), network_type)
+    edges = ox.graph_to_gdfs(G, nodes=False, edges=True).reset_index()
+    # u, v, key live in the index until reset_index(), so select afterwards
+    edges = edges[[c for c in ("u", "v", "key", "highway", "name", "lanes", "geometry")
+                   if c in edges.columns]]
     edges["highway"] = edges["highway"].apply(
         lambda h: h[0] if isinstance(h, list) else h
     )

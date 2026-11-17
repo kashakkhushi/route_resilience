@@ -261,6 +261,18 @@ def main() -> None:
     ap.add_argument("--preflight-sample", type=int, default=60)
     ap.add_argument("--allow-cpu", action="store_true",
                     help="permit training without CUDA (smoke tests only)")
+    ap.add_argument("--init-from", default="",
+                    help="start from the weights of an existing best.pt (fine-tuning) "
+                         "instead of ImageNet; the architecture must match --arch")
+    ap.add_argument("--pos-weight", type=float, default=8.0,
+                    help="BCE weight on road pixels. 8 favours recall; lower values "
+                         "give thinner, more precise masks")
+    ap.add_argument("--lovasz-weight", type=float, default=0.0,
+                    help="add a Lovasz hinge term (optimises IoU directly); 0 = off")
+    ap.add_argument("--max-hours", type=float, default=0.0,
+                    help="stop cleanly after the epoch that would exceed this "
+                         "wall-clock budget (0 = no limit). Kaggle kills a "
+                         "session at 12 h and a killed run saves nothing.")
     ap.add_argument("--limit-train", type=int, default=0,
                     help="cap training tiles (smoke runs only)")
     args = ap.parse_args()
@@ -269,7 +281,7 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
 
     print("=" * 66)
-    print("  Route Resilience - U-Net(ResNet34) / DeepGlobe training")
+    print(f"  Route Resilience - {args.arch} / DeepGlobe training")
     print("=" * 66)
     pre = preflight(data, args.seed, args.preflight_sample, args.tile_size,
                     allow_cpu=args.allow_cpu)
@@ -288,7 +300,7 @@ def main() -> None:
     # ---- config saved before training, so a crashed run is still reproducible
     config = {
         "architecture": args.arch,
-        "encoder": "resnet34",
+        "encoder": encoder_name(args.arch),
         "encoder_weights_init": enc_w,
         "in_channels": args.in_channels,
         "image_size": args.tile_size,
@@ -308,7 +320,11 @@ def main() -> None:
         "monitor": args.monitor,
         "occlusion_augmentation": not args.no_occlusion,
         "occlusion_applies_to": "image only - ground-truth mask is never modified",
-        "loss": "OcclusionWeightedBCE + SoftDice + SoftCLDice (+ aux occlusion BCE)",
+        "loss": "OcclusionWeightedBCE + SoftDice + SoftCLDice (+ aux occlusion BCE)"
+                + (f" + {args.lovasz_weight} x LovaszHinge" if args.lovasz_weight > 0 else ""),
+        "lovasz_weight": args.lovasz_weight,
+        "pos_weight": args.pos_weight,
+        "init_from": args.init_from or None,
         "device": device,
         "versions": pre["versions"],
         "git_commit": git_version(),
@@ -334,15 +350,32 @@ def main() -> None:
     val_dl = DataLoader(val_ds, args.batch_size, num_workers=max(args.num_workers // 2, 0))
 
     # ---- model
-    try:
-        model = build_model(args.arch, args.in_channels, encoder_weights=enc_w)
-    except TypeError:
-        model = build_model(args.arch, args.in_channels)
+    if args.init_from:
+        # Fine-tuning: rebuild the exact architecture offline and load every
+        # weight from the earlier run. A mismatch is a hard error, never a
+        # silent partial load.
+        ck0 = torch.load(args.init_from, map_location="cpu", weights_only=False)
+        ck_arch = ck0.get("args", {}).get("model", args.arch)
+        if ck_arch != args.arch:
+            sys.exit(f"--init-from checkpoint is '{ck_arch}' but --arch is '{args.arch}'")
+        model = build_model(args.arch, args.in_channels, encoder_weights=None,
+                            hf_config=ck0.get("hf_config"))
+        model.load_state_dict(ck0["model"], strict=True)
+        init_desc = (f"{args.init_from} (epoch {ck0.get('epoch')}, "
+                     f"{ck0.get('best_metric')}={ck0.get('best_value')})")
+        del ck0
+    else:
+        try:
+            model = build_model(args.arch, args.in_channels, encoder_weights=enc_w)
+        except TypeError:
+            model = build_model(args.arch, args.in_channels)
+        init_desc = enc_w
     model = model.to(device)
     n_par = sum(p.numel() for p in model.parameters())
-    print(f"Model {args.arch}  {n_par/1e6:.2f}M params  encoder init={enc_w}")
+    print(f"Model {args.arch}  {n_par/1e6:.2f}M params  init={init_desc}")
+    print(f"Loss: pos_weight={args.pos_weight}  lovasz_weight={args.lovasz_weight}")
 
-    criterion = RoadLoss()
+    criterion = RoadLoss(w_lovasz=args.lovasz_weight, pos_weight=args.pos_weight)
     decay = [p for _, p in model.named_parameters() if p.ndim > 1]
     no_decay = [p for _, p in model.named_parameters() if p.ndim <= 1]
     opt = torch.optim.AdamW([{"params": decay, "weight_decay": 0.01},
@@ -402,10 +435,23 @@ def main() -> None:
               f"clDice {rec['val_cldice']}  ({rec['secs']}s)")
 
         score = rec.get(f"val_{args.monitor}") or -1.0
-        if score > best:
-            best, best_epoch = score, epoch
+        # The first epoch is always saved, so a best.pt exists even if every
+        # validation score is zero early on.
+        if score > best or not (out / "best.pt").exists():
+            best, best_epoch = max(score, best), epoch
             save_checkpoint(out / "best.pt", model, args, config, rec, epoch,
                             best_metric=args.monitor, best_value=score)
+        # Written every epoch so an interrupted run still leaves its curve.
+        (out / "history.json").write_text(json.dumps(history, indent=2))
+
+        if args.max_hours > 0:
+            elapsed = time.time() - t_start
+            per_epoch = elapsed / (epoch + 1)
+            if elapsed + per_epoch > args.max_hours * 3600 and epoch + 1 < args.epochs:
+                print(f"\n  time budget {args.max_hours} h reached after epoch {epoch}: "
+                      f"stopping early ({epoch + 1}/{args.epochs} epochs completed)")
+                config["stopped_early"] = True
+                break
 
     duration = round(time.time() - t_start, 1)
     save_checkpoint(out / "final.pt", model, args, config, history[-1],
@@ -425,6 +471,15 @@ def main() -> None:
     print(f"  {out/'history.json'}  {out/'metadata.json'}  {out/'config.json'}")
 
     verify_offline(out / "best.pt")
+
+
+def encoder_name(arch: str) -> str:
+    """Human-readable backbone for the metadata, derived from the --arch string."""
+    a = arch.lower()
+    if a.startswith("segformer"):
+        return "mit-" + (a.split("_")[-1] if "_" in a else "b3")
+    return {"r18": "resnet18", "r34": "resnet34", "r50": "resnet50",
+            "effb3": "efficientnet-b3"}.get(a.rsplit("_", 1)[-1], "resnet34")
 
 
 def save_checkpoint(path: Path, model, args, config: dict, metrics: dict,
@@ -448,9 +503,13 @@ def save_checkpoint(path: Path, model, args, config: dict, metrics: dict,
         "best_metric": best_metric,
         "best_value": best_value,
         "config": config,
+        # SegFormer only: the exact HuggingFace config, so the model can be
+        # rebuilt offline with matching shapes. None for every other architecture.
+        "hf_config": (model.net.config.to_dict()
+                      if args.arch.lower().startswith("segformer") else None),
         "inference": {
             "architecture": args.arch,
-            "encoder": "resnet34",
+            "encoder": encoder_name(args.arch),
             "encoder_weights_required_at_load": None,
             "in_channels": args.in_channels,
             "image_size": args.tile_size,
@@ -481,7 +540,7 @@ def verify_offline(ckpt: Path) -> None:
 
         ck = torch.load(ckpt, map_location="cpu", weights_only=False)
         m = build_model(ck["args"]["model"], ck["args"]["in_channels"],
-                        encoder_weights=None)
+                        encoder_weights=None, hf_config=ck.get("hf_config"))
         res = m.load_state_dict(ck["model"], strict=True)
         missing = getattr(res, "missing_keys", [])
         unexpected = getattr(res, "unexpected_keys", [])
@@ -492,8 +551,10 @@ def verify_offline(ckpt: Path) -> None:
         print(f"  OK    loads offline, forward pass shape {tuple(y.shape)}")
         print(f"  OK    inference metadata present: {sorted(ck['inference'])}")
     except Exception as e:
+        # Reported, not raised: the checkpoint is already on disk, and failing
+        # the whole notebook here would discard hours of training output.
         print(f"  FAIL  {type(e).__name__}: {e}")
-        raise
+        print("        The checkpoint IS saved. Investigate before deploying it.")
     finally:
         socket.socket.connect = real
 

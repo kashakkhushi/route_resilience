@@ -120,6 +120,60 @@ def find_checkpoint(search_dirs=("checkpoints",)) -> Path | None:
     return None
 
 
+# Which imagery each fine-tuned checkpoint expects. Recognised from the
+# checkpoint's folder name, so no 200 MB file is loaded just to list them.
+# "input_gsd_m" is the pixel size of the tiles the model was trained on: the
+# LISS-IV (5 m) and Sentinel-2 (10 m) tiles were upsampled to 2.5 m/px.
+_SENSORS = (
+    (("s2", "sentinel"), "Sentinel-2 (10 m)", 2.5,
+     "Fine-tuned on Hyderabad Sentinel-2 tiles (upsampled x4 to 2.5 m/px)"),
+    (("liss",), "LISS-IV (5 m)", 2.5,
+     "Fine-tuned on Hyderabad LISS-IV tiles (upsampled x2 to 2.5 m/px)"),
+)
+
+
+def _describe(path: Path, root: Path) -> dict:
+    folder = path.parent.name.lower()
+    label, gsd, note = "DeepGlobe (0.5 m)", 0.5, "Trained on DeepGlobe aerial tiles (0.5 m/px)"
+    for keys, l, g, n in _SENSORS:
+        if any(k in folder for k in keys):
+            label, gsd, note = l, g, n
+            break
+    try:
+        mid = path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        mid = path.name
+    return {"id": mid, "label": f"{label} - {path.parent.name}", "sensor": label,
+            "input_gsd_m": gsd, "note": note}
+
+
+def list_checkpoints(root: str | Path = "checkpoints") -> dict:
+    """Every checkpoint the server can load, plus which one is the default."""
+    root = Path(root)
+    found = sorted(root.rglob("*.pt")) if root.is_dir() else []
+    default = find_checkpoint()
+    items = [_describe(p, root) for p in found]
+    d = _describe(default, root) if default else None
+    if d and all(i["id"] != d["id"] for i in items):
+        items.insert(0, d)
+    return {"default": d["id"] if d else None, "models": items}
+
+
+def resolve_checkpoint(model_id: str | None, root: str | Path = "checkpoints") -> Path | None:
+    """Map a model id from /api/models to a file inside the checkpoints folder.
+    Anything outside that folder is refused (no path traversal)."""
+    if not model_id:
+        return find_checkpoint()
+    root = Path(root).resolve()
+    p = (root / model_id).resolve()
+    if root not in p.parents or not p.is_file() or p.suffix != ".pt":
+        d = find_checkpoint()
+        if d is not None and _describe(d, root)["id"] == model_id:
+            return d
+        raise FileNotFoundError(f"Unknown model '{model_id}'. See GET /api/models.")
+    return p
+
+
 def torch_available() -> bool:
     try:
         import torch  # noqa: F401
@@ -272,12 +326,21 @@ def neural_extract(image: np.ndarray, checkpoint: Path, device: str = "cpu",
     # firewalled machine that download fails and inference dies with an HTTP
     # error, despite every weight it needs already being on disk.
     try:
-        model = build_model(name, args.get("in_channels", 3), encoder_weights=None)
+        model = build_model(name, args.get("in_channels", 3), encoder_weights=None,
+                            hf_config=ckpt.get("hf_config"))
     except TypeError:
         # SegFormer variants take no encoder_weights argument.
         model = build_model(name, args.get("in_channels", 3))
 
     missing, unexpected = model.load_state_dict(ckpt["model"], strict=False)
+    if (missing or unexpected) and name.lower().startswith("segformer") and (
+            any(".stages." in k for k in unexpected) != any(".stages." in k for k in missing)):
+        import transformers
+        raise RuntimeError(
+            f"SegFormer checkpoint and installed transformers {transformers.__version__} "
+            "use different layer names (transformers 5 renamed them). Install the "
+            "version the checkpoint was trained with: pip install \"transformers>=5.0,<6.0\"."
+        )
     if missing or unexpected:
         raise RuntimeError(
             f"Checkpoint does not match architecture '{name}': "
@@ -290,7 +353,7 @@ def neural_extract(image: np.ndarray, checkpoint: Path, device: str = "cpu",
     pred["evidence"] = evidence_map_from_prediction(pred)
     pred["provenance"] = ModelProvenance(
         mode=ExtractionMode.TRAINED_MODEL,
-        label=f"TRAINED MODEL - {name}",
+        label=f"TRAINED MODEL - {name} ({checkpoint.parent.name})",
         description=(
             f"Segmentation produced by {name} loaded from {checkpoint.name}. "
             "Reported validation metrics come from the checkpoint's own training run."
@@ -337,11 +400,12 @@ def simulated_demo_extract(gt_mask: np.ndarray, occlusion: np.ndarray | None = N
 
 def extract_roads(image: np.ndarray, pixel_size_m: float = 1.0,
                   threshold: float | None = None, prefer_neural: bool = True,
-                  road_width_m: float = 8.0, road_fraction_prior: float = 0.08) -> dict:
+                  road_width_m: float = 8.0, road_fraction_prior: float = 0.08,
+                  model_id: str | None = None) -> dict:
     """Single entry point. Uses the trained model when genuinely available,
     otherwise the classical baseline - and says which, every time."""
     if prefer_neural and torch_available():
-        ckpt = find_checkpoint()
+        ckpt = resolve_checkpoint(model_id)
         if ckpt is not None:
             return neural_extract(image, ckpt, threshold=threshold or 0.5)
     return classical_extract(image, pixel_size_m, road_width_m=road_width_m,

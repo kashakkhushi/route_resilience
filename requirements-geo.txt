@@ -27,3 +27,7 @@ rtree>=1.1                  # spatial index; without it geopandas joins crawl
 osmnx>=2.0,<3.0
 
 rioxarray>=0.15             # optional: lazy/chunked reads of very large scenes
+
+# Real-imagery experiments (scripts/apls_spacenet.py, scripts/fetch_sentinel2.py)
+boto3>=1.28                 # anonymous read of the public SpaceNet S3 bucket
+pystac-client>=0.7          # Sentinel-2 search on the Earth Search STAC catalogue

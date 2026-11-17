@@ -23,9 +23,17 @@ interface Props {
   routeAlternate?: number[] | null;
   selected?: number | null;
   onSelectNode?: (n: number) => void;
+  /** Labelled pins (e.g. trip origin "A" and destination "B"). */
+  markers?: { node: number; label: string; color: string }[];
   showHealed?: boolean;
   showCriticality?: boolean;
   backdrop?: string | null;
+  /** Image size in pixels. When given, the backdrop is drawn at its true
+   *  position (graph coordinates are [col, -row]); otherwise it is stretched
+   *  to the network's bounding box. */
+  backdropExtent?: { width: number; height: number } | null;
+  /** Backdrop opacity, 0-1. */
+  backdropOpacity?: number;
   className?: string;
 }
 
@@ -37,8 +45,9 @@ interface Layout {
 
 export default function NetworkCanvas({
   geojson, scores = {}, gatekeepers = [], disabledNodes = [], disabledEdges = [],
-  routeOriginal, routeAlternate, selected, onSelectNode,
-  showHealed = true, showCriticality = true, backdrop, className,
+  routeOriginal, routeAlternate, selected, onSelectNode, markers = [],
+  showHealed = true, showCriticality = true, backdrop, backdropExtent,
+  backdropOpacity = 0.34, className,
 }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -123,10 +132,12 @@ export default function NetworkCanvas({
     g.fillRect(0, 0, w, h);
 
     if (bgImg.current) {
-      const [minX, minY, maxX, maxY] = layout.bbox;
+      const [minX, minY, maxX, maxY] = backdropExtent
+        ? [0, -backdropExtent.height, backdropExtent.width, 0]
+        : layout.bbox;
       const [x0, y1] = t.toScreen(minX, maxY);
       const [x1, y0] = t.toScreen(maxX, minY);
-      g.globalAlpha = 0.34;
+      g.globalAlpha = backdropOpacity;
       g.drawImage(bgImg.current, x0, y1, x1 - x0, y0 - y1);
       g.globalAlpha = 1;
     }
@@ -161,14 +172,39 @@ export default function NetworkCanvas({
     }
     g.setLineDash([]);
 
+    // Road shape per junction pair (shortest one if two roads join the same pair)
+    const plen = (q: [number, number][]) =>
+      q.reduce((acc, p, i) => i ? acc + Math.hypot(p[0] - q[i - 1][0], p[1] - q[i - 1][1]) : 0, 0);
+    const edgeShape = new Map<string, [number, number][]>();
+    for (const e of layout.edges) {
+      const key = `${Math.min(e.u, e.v)}-${Math.max(e.u, e.v)}`;
+      const prev = edgeShape.get(key);
+      if (!prev || plen(e.pts) < plen(prev)) edgeShape.set(key, e.pts);
+    }
+
     // Routes drawn above the network
     const drawRoute = (path: number[] | null | undefined, color: string, width: number) => {
       if (!path?.length) return;
+      // Follow each road's real shape (its pixel trace), not a straight line
+      // between its two junctions.
+      const d2 = (p: [number, number], q: { x: number; y: number }) =>
+        (p[0] - q.x) ** 2 + (p[1] - q.y) ** 2;
+      const pts: [number, number][] = [];
+      for (let i = 0; i < path.length - 1; i++) {
+        const a = layout.nodes.get(path[i]), b = layout.nodes.get(path[i + 1]);
+        if (!a || !b) continue;
+        const shape = edgeShape.get(`${Math.min(path[i], path[i + 1])}-${Math.max(path[i], path[i + 1])}`);
+        let seg: [number, number][] = shape && shape.length > 1 ? shape : [[a.x, a.y], [b.x, b.y]];
+        if (d2(seg[0], a) > d2(seg[seg.length - 1], a)) seg = [...seg].reverse();
+        pts.push([a.x, a.y], ...seg, [b.x, b.y]);
+      }
+      if (path.length === 1) {
+        const a = layout.nodes.get(path[0]);
+        if (a) pts.push([a.x, a.y]);
+      }
       g.beginPath();
-      path.forEach((n, i) => {
-        const p = layout.nodes.get(n);
-        if (!p) return;
-        const [sx, sy] = t.toScreen(p.x, p.y);
+      pts.forEach(([x, y], i) => {
+        const [sx, sy] = t.toScreen(x, y);
         i === 0 ? g.moveTo(sx, sy) : g.lineTo(sx, sy);
       });
       g.strokeStyle = color; g.lineWidth = width;
@@ -204,15 +240,34 @@ export default function NetworkCanvas({
         g.strokeStyle = "#E8EDF4"; g.lineWidth = 1.6; g.stroke();
       }
       if (isDead) {
-        g.strokeStyle = "#EF4444"; g.lineWidth = 2;
+        const q = r + 7;
+        g.lineCap = "round";
+        g.strokeStyle = "#0B1220"; g.lineWidth = 6;        // dark halo for contrast
         g.beginPath();
-        g.moveTo(x - r - 3, y - r - 3); g.lineTo(x + r + 3, y + r + 3);
-        g.moveTo(x + r + 3, y - r - 3); g.lineTo(x - r - 3, y + r + 3);
+        g.moveTo(x - q, y - q); g.lineTo(x + q, y + q);
+        g.moveTo(x + q, y - q); g.lineTo(x - q, y + q);
+        g.stroke();
+        g.strokeStyle = "#EF4444"; g.lineWidth = 3;
         g.stroke();
       }
     }
+
+    // Labelled pins on top of everything
+    for (const m of markers) {
+      const p = layout.nodes.get(m.node);
+      if (!p) continue;
+      const [x, y] = t.toScreen(p.x, p.y);
+      g.beginPath(); g.arc(x, y, 11, 0, Math.PI * 2);
+      g.fillStyle = m.color; g.fill();
+      g.lineWidth = 2; g.strokeStyle = "#0B1220"; g.stroke();
+      g.fillStyle = "#0B1220";
+      g.font = "bold 12px Inter, system-ui, sans-serif";
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(m.label, x, y + 0.5);
+    }
   }, [layout, transform, scores, gatekeepers, disabledNodes, disabledEdges,
-      routeOriginal, routeAlternate, selected, hover, showHealed, showCriticality]);
+      routeOriginal, routeAlternate, selected, hover, showHealed, showCriticality, markers,
+      backdropExtent, backdropOpacity]);
 
   useEffect(() => { draw(); }, [draw]);
   useEffect(() => {

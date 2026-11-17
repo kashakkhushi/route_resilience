@@ -133,7 +133,8 @@ def run(checkpoint: Path, data_dir: Path, out_dir: Path, limit: int,
     args = ck.get("args", {})
     name = args.get("model", "unet_r34")
     try:
-        model = build_model(name, args.get("in_channels", 3), encoder_weights=None)
+        model = build_model(name, args.get("in_channels", 3), encoder_weights=None,
+                            hf_config=ck.get("hf_config"))
     except TypeError:
         model = build_model(name, args.get("in_channels", 3))
     model.load_state_dict(ck["model"])

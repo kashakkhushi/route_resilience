@@ -26,19 +26,45 @@ import torch.nn.functional as F
 from transformers import SegformerConfig, SegformerForSemanticSegmentation
 
 
+# Fallback architecture table, used only when a checkpoint carries no saved
+# config. Checkpoints written by scripts/kaggle_train.py always carry one.
+_MIT_VARIANTS = {
+    "b0": dict(hidden_sizes=[32, 64, 160, 256], depths=[2, 2, 2, 2], decoder_hidden_size=256),
+    "b1": dict(hidden_sizes=[64, 128, 320, 512], depths=[2, 2, 2, 2], decoder_hidden_size=256),
+    "b2": dict(hidden_sizes=[64, 128, 320, 512], depths=[3, 4, 6, 3], decoder_hidden_size=768),
+    "b3": dict(hidden_sizes=[64, 128, 320, 512], depths=[3, 4, 18, 3], decoder_hidden_size=768),
+    "b4": dict(hidden_sizes=[64, 128, 320, 512], depths=[3, 8, 27, 3], decoder_hidden_size=768),
+    "b5": dict(hidden_sizes=[64, 128, 320, 512], depths=[3, 6, 40, 3], decoder_hidden_size=768),
+}
+
+
 class RoadSegFormer(nn.Module):
     def __init__(
         self,
         pretrained: str = "nvidia/mit-b3",
         in_channels: int = 3,
         aux_occlusion_head: bool = True,
+        load_pretrained: bool = True,
+        hf_config: dict | None = None,
     ):
         super().__init__()
         self.aux_occlusion_head = aux_occlusion_head
 
-        self.net = SegformerForSemanticSegmentation.from_pretrained(
-            pretrained, num_labels=1, ignore_mismatched_sizes=True
-        )
+        if load_pretrained:
+            # Training: start from the ImageNet-pretrained MiT backbone (needs network).
+            self.net = SegformerForSemanticSegmentation.from_pretrained(
+                pretrained, num_labels=1, ignore_mismatched_sizes=True
+            )
+        else:
+            # Deployment / evaluation: rebuild the exact architecture with no
+            # download. The checkpoint's state_dict supplies every weight, and
+            # the config saved at training time guarantees the shapes match.
+            if hf_config is not None:
+                cfg = SegformerConfig.from_dict(dict(hf_config))
+            else:
+                variant = pretrained.rsplit("-", 1)[-1]
+                cfg = SegformerConfig(num_labels=1, **_MIT_VARIANTS[variant])
+            self.net = SegformerForSemanticSegmentation(cfg)
 
         # Multispectral input (e.g. RGB + NIR + NDVI): widen the patch embedding
         # and copy the pretrained RGB weights, averaging them into the new bands
@@ -47,6 +73,8 @@ class RoadSegFormer(nn.Module):
             self._inflate_stem(in_channels)
 
         if aux_occlusion_head:
+            self._fused = None
+            self.net.decode_head.linear_fuse.register_forward_hook(self._capture_fused)
             hidden = self.net.config.decoder_hidden_size
             self.occ_head = nn.Sequential(
                 nn.Conv2d(hidden, hidden // 2, 3, padding=1),
@@ -73,27 +101,23 @@ class RoadSegFormer(nn.Module):
             new.bias.copy_(stem.bias) if stem.bias is not None else None
         self.net.segformer.encoder.patch_embeddings[0].proj = new
 
+    def _capture_fused(self, _module, _inputs, output) -> None:
+        self._fused = output
+
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         h, w = x.shape[-2:]
-        out = self.net(pixel_values=x, output_hidden_states=self.aux_occlusion_head)
+        out = self.net(pixel_values=x)
         road = F.interpolate(out.logits, size=(h, w), mode="bilinear", align_corners=False)
         result = {"road_logits": road}
 
         if self.aux_occlusion_head:
-            # Reuse the fused decoder features that feed the main classifier.
-            feats = self.net.decode_head.linear_fuse.weight  # touch to keep graph explicit
-            fused = self._fused_features(out.hidden_states)
-            occ = F.interpolate(self.occ_head(fused), size=(h, w), mode="bilinear",
-                                align_corners=False)
+            # The fused multi-scale decoder features are captured by a forward
+            # hook on the decode head's fusion layer. Reading them this way
+            # depends only on that layer existing, not on the names of the
+            # head's internal projection modules, which differ between
+            # transformers releases.
+            occ = F.interpolate(self.occ_head(self._fused), size=(h, w),
+                                mode="bilinear", align_corners=False)
+            self._fused = None
             result["occlusion_logits"] = occ
         return result
-
-    def _fused_features(self, hidden_states) -> torch.Tensor:
-        head = self.net.decode_head
-        target = hidden_states[0].shape[2:]
-        feats = []
-        for state, mlp in zip(hidden_states, head.linear_c):
-            b, c, hh, ww = state.shape
-            f = mlp(state.flatten(2).transpose(1, 2)).permute(0, 2, 1).reshape(b, -1, hh, ww)
-            feats.append(F.interpolate(f, size=target, mode="bilinear", align_corners=False))
-        return head.linear_fuse(torch.cat(feats[::-1], dim=1))
