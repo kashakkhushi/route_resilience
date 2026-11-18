@@ -6,10 +6,9 @@
  * the actual backend - this is a narrated run, not a scripted animation, and
  * the numbers shown are the numbers that were just computed.
  */
-import { useCallback, useRef, useState } from "react";
-import { CheckCircle2, Circle, Loader2, Play, Square } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { CheckCircle2, Info, Loader2, Play, Square } from "lucide-react";
 import clsx from "clsx";
-import { Note, Panel } from "@/components/ui";
 
 export interface DemoStep {
   id: string;
@@ -132,29 +131,55 @@ export const DEMO_STEPS: DemoStep[] = [
   },
 ];
 
+// The demo switches tabs as it goes, which unmounts this panel; its progress
+// therefore lives here, outside the component, and is shown again on return.
+type DemoState = { idx: number; results: Record<string, string>; times: Record<string, number>;
+                   failed: string | null; running: boolean };
+const DEMO: DemoState & { subs: Set<() => void>; stop: boolean } = {
+  idx: -1, results: {}, times: {}, failed: null, running: false, subs: new Set(), stop: false,
+};
+function setDemo(patch: Partial<DemoState> | ((d: DemoState) => Partial<DemoState>)) {
+  Object.assign(DEMO, typeof patch === "function" ? patch(DEMO) : patch);
+  DEMO.subs.forEach((f) => f());
+}
+
 export function DemoRunner({ p, onTab }: { p: any; onTab: (t: string) => void }) {
-  const [idx, setIdx] = useState(-1);
-  const [results, setResults] = useState<Record<string, string>>({});
-  const [running, setRunning] = useState(false);
-  const stop = useRef(false);
+  const [, force] = useState(0);
+  useEffect(() => {
+    const f = () => force((n) => n + 1);
+    DEMO.subs.add(f);
+    return () => { DEMO.subs.delete(f); };
+  }, []);
+  const { idx, results, times, failed, running } = DEMO;
+  const setIdx = (v: number) => setDemo({ idx: v });
+  const setResults = (fn: (r: Record<string, string>) => Record<string, string>) => setDemo((d) => ({ results: fn(d.results) }));
+  const setTimes = (fn: (t: Record<string, number>) => Record<string, number>) => setDemo((d) => ({ times: fn(d.times) }));
+  const setFailed = (v: string | null) => setDemo({ failed: v });
+  const setRunning = (v: boolean) => setDemo({ running: v });
+  const [open, setOpen] = useState<string | null>(null);
+  const stop = { get current() { return DEMO.stop; }, set current(v: boolean) { DEMO.stop = v; } };
 
   const play = useCallback(async () => {
+    if (DEMO.running) return;
     setRunning(true);
     stop.current = false;
-    setResults({});
+    setDemo({ results: {}, times: {}, failed: null });
     const ctx: DemoCtx = { p, tab: onTab };
 
     for (let i = 0; i < DEMO_STEPS.length; i++) {
       if (stop.current) break;
       setIdx(i);
+      const t0 = performance.now();
       try {
         const out = await DEMO_STEPS[i].run(ctx);
         setResults((r) => ({ ...r, [DEMO_STEPS[i].id]: out }));
       } catch (e) {
-        setResults((r) => ({
-          ...r, [DEMO_STEPS[i].id]: `failed: ${(e as Error).message}`,
-        }));
+        setResults((r) => ({ ...r, [DEMO_STEPS[i].id]: `failed: ${(e as Error).message}` }));
+        setFailed(DEMO_STEPS[i].id);
         break;
+      } finally {
+        const dt = (performance.now() - t0) / 1000;      // measured, not invented
+        setTimes((t) => ({ ...t, [DEMO_STEPS[i].id]: dt }));
       }
       await new Promise((r) => setTimeout(r, 900));
     }
@@ -162,57 +187,74 @@ export function DemoRunner({ p, onTab }: { p: any; onTab: (t: string) => void })
     setIdx(-1);
   }, [p, onTab]);
 
+  const doneCount = Object.keys(results).length;
   return (
-    <Panel title="Guided demonstration" dense
-      actions={
-        running ? (
+    <section className="panel p-4 flex flex-col min-h-0">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[15px] font-semibold text-white">Guided demonstration</div>
+          <div className="text-[12px] text-ink-500">Live API calls &middot; real computed figures</div>
+        </div>
+        {running ? (
           <button className="btn-ghost text-xs" onClick={() => { stop.current = true; }}>
             <Square size={12} /> Stop
           </button>
         ) : (
-          <button className="btn-primary text-xs" onClick={play}>
-            <Play size={12} /> Run
+          <button onClick={play}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-300 to-sky-400
+                       px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-[0_0_16px_rgba(34,211,238,0.4)]
+                       hover:brightness-110">
+            <Play size={12} /> {doneCount ? "Run again" : "Run all"}
           </button>
-        )
-      }>
-      <div className="space-y-2">
-        <Note>
-          Each step issues a real API call. The figures below are what the backend
-          just computed, not a recorded walkthrough.
-        </Note>
+        )}
+      </div>
 
-        <ol className="space-y-1.5">
-          {DEMO_STEPS.map((s, i) => {
-            const done = results[s.id] !== undefined;
-            const active = idx === i;
-            return (
-              <li key={s.id}
-                  className={clsx("rounded-md border px-2.5 py-2 transition-colors",
-                    active ? "border-accent/40 bg-accent/10"
-                    : done ? "border-line-soft bg-base-700/40" : "border-line-soft")}>
-                <div className="flex items-center gap-2 text-[12px]">
-                  {active ? <Loader2 size={13} className="animate-spin text-accent" />
-                   : done ? <CheckCircle2 size={13} className="text-risk-low" />
-                   : <Circle size={13} className="text-ink-500" />}
-                  <span className={done || active ? "text-ink-100" : "text-ink-500"}>
-                    {i + 1}. {s.title}
+      <ol className="mt-3 relative space-y-0.5 overflow-auto min-h-0">
+        {DEMO_STEPS.map((s, i) => {
+          const done = results[s.id] !== undefined && failed !== s.id;
+          const bad = failed === s.id;
+          const active = idx === i;
+          const last = i === DEMO_STEPS.length - 1;
+          const showText = open === s.id || active;
+          return (
+            <li key={s.id} className="relative pl-9">
+              {!last && <span className={clsx("absolute left-[13px] top-7 bottom-0 w-px",
+                                              done ? "bg-accent/50" : "bg-line")} />}
+              <span className={clsx("absolute left-0 top-1.5 grid h-7 w-7 place-items-center rounded-full border text-[11px]",
+                done ? "border-accent/60 bg-accent/15 text-accent shadow-[0_0_10px_rgba(34,211,238,0.35)]"
+                : bad ? "border-rose-400/60 bg-rose-400/10 text-rose-300"
+                : active ? "border-amber-400/70 bg-amber-400/10 text-amber-300"
+                : "border-line text-ink-500")}>
+                {done ? <CheckCircle2 size={14} /> : active ? <Loader2 size={13} className="animate-spin" />
+                  : bad ? "!" : i + 1}
+              </span>
+              <button className="w-full text-left py-1.5" onClick={() => setOpen(open === s.id ? null : s.id)}>
+                <div className="flex items-center gap-2">
+                  <span className={clsx("text-[13.5px] font-medium",
+                    done || active ? "text-white" : bad ? "text-rose-300" : "text-ink-300")}>{s.title}</span>
+                  <span className="ml-auto text-[10.5px] font-mono text-ink-500">
+                    {times[s.id] !== undefined ? `${times[s.id].toFixed(1)}s`
+                      : active ? "running" : running && i > idx ? "queued" : ""}
                   </span>
                 </div>
-                {(active || done) && (
-                  <p className="text-[10px] text-ink-500 mt-1.5 leading-relaxed pl-5">
-                    {s.caption}
-                  </p>
+                {results[s.id] && (
+                  <div className={clsx("text-[11.5px] font-mono mt-0.5 break-words",
+                    bad ? "text-rose-300" : "text-accent/90")}>{results[s.id]}</div>
                 )}
-                {done && (
-                  <p className="text-[11px] text-accent mt-1 font-mono pl-5 break-words">
-                    {results[s.id]}
-                  </p>
+                {active && <div className="mt-1.5 h-1 rounded-full bg-base-600 overflow-hidden">
+                  <div className="h-full w-1/3 rounded-full bg-amber-400 animate-pulse" />
+                </div>}
+                {showText && (
+                  <p className="text-[11.5px] text-ink-500 mt-1 leading-relaxed">{s.caption}</p>
                 )}
-              </li>
-            );
-          })}
-        </ol>
-      </div>
-    </Panel>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      <p className="mt-2 text-[10px] text-ink-500 flex items-center gap-1.5">
+        <Info size={11} /> Each step is a real API call; click a step to read what it shows.
+      </p>
+    </section>
   );
 }

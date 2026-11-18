@@ -128,7 +128,7 @@ export default function NetworkCanvas({
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, w, h);
 
-    g.fillStyle = "#080B10";
+    g.fillStyle = "#06121B";
     g.fillRect(0, 0, w, h);
 
     if (bgImg.current) {
@@ -158,17 +158,19 @@ export default function NetworkCanvas({
       if (dead) {
         g.strokeStyle = "#EF4444"; g.lineWidth = 2.4; g.setLineDash([]);
       } else if (e.healed && showHealed) {
-        g.strokeStyle = "#38BDF8"; g.lineWidth = 1.9; g.setLineDash([5, 4]);
+        g.strokeStyle = "#E0FBFF"; g.lineWidth = 1.9; g.setLineDash([5, 4]);
       } else if (showCriticality && e.crit > 0) {
         g.strokeStyle = riskColor(e.crit);
         g.lineWidth = 0.9 + 2.6 * e.crit;
         g.setLineDash([]);
       } else {
-        g.strokeStyle = "#3A4A5E"; g.lineWidth = 1.2; g.setLineDash([]);
+        g.strokeStyle = "rgba(34,211,238,0.8)"; g.lineWidth = 1.5; g.setLineDash([]);
+        g.shadowColor = "rgba(34,211,238,0.7)"; g.shadowBlur = 6;
       }
       g.globalAlpha = dead ? 0.85 : 1;
       g.stroke();
       g.globalAlpha = 1;
+      g.shadowBlur = 0;
     }
     g.setLineDash([]);
 

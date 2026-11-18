@@ -139,7 +139,11 @@ export default function TripPlannerSection() {
     layers.current.top = L.layerGroup().addTo(m);
     m.on("click", (e: L.LeafletMouseEvent) => onMapClick(e.latlng));
     map.current = m;
-    return () => { m.remove(); map.current = null; };
+    // The page stays mounted while other tabs are open (so a planned trip is
+    // kept); when it becomes visible again Leaflet must re-measure its box.
+    const ro = new ResizeObserver(() => m.invalidateSize());
+    ro.observe(mapEl.current);
+    return () => { ro.disconnect(); m.remove(); map.current = null; };
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   function onMapClick(ll: L.LatLng) {

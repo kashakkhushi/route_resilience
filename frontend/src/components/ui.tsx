@@ -26,7 +26,7 @@ export function Panel({
     <section className={clsx("panel flex flex-col min-h-0", className)}>
       {title && (
         <header className="panel-hd">
-          <h2 className="label">{title}</h2>
+          <h2 className="panel-title">{title}</h2>
           {actions}
         </header>
       )}

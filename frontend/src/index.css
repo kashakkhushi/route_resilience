@@ -6,6 +6,8 @@
   html, body, #root { height: 100%; }
   body {
     @apply bg-base-900 text-ink-100 font-sans antialiased;
+    background-image: radial-gradient(ellipse at 70% 0%, rgba(34,211,238,0.07), transparent 55%),
+                      radial-gradient(ellipse at 0% 100%, rgba(14,116,144,0.10), transparent 50%);
     font-feature-settings: "cv02", "cv03", "cv04", "tnum";
   }
   ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -17,13 +19,20 @@
 @layer components {
   /* Subtle glass panel - the base surface of the command centre. */
   .panel {
-    @apply bg-base-800/80 border border-line-soft rounded-lg backdrop-blur-sm shadow-panel;
+    @apply bg-gradient-to-b from-base-700/70 to-base-800/85 border border-line-soft rounded-xl
+           backdrop-blur-md shadow-panel;
   }
   .panel-hd {
-    @apply px-4 py-2.5 border-b border-line-soft flex items-center justify-between;
+    @apply px-4 py-3 border-b border-line-soft/80 flex items-center justify-between;
   }
   .label {
-    @apply text-[10px] uppercase tracking-[0.12em] text-ink-500 font-medium;
+    @apply text-[11px] uppercase tracking-[0.12em] text-ink-500 font-semibold;
+  }
+  /* Panel headings: readable, with a small cyan accent mark */
+  .panel-title {
+    @apply text-[13px] font-semibold tracking-wide text-ink-100 flex items-center gap-2
+           before:content-[''] before:h-3.5 before:w-1 before:rounded-full before:bg-accent
+           before:shadow-[0_0_8px_rgba(34,211,238,0.7)];
   }
   /* Tabular figures: metrics must not jitter as values change. */
   .metric { @apply font-mono tabular-nums; }
