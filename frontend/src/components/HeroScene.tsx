@@ -211,10 +211,14 @@ export default function HeroScene({ className = "", onLayout }: {
       // layout: globe behind the text (left), India map on the right
       // The globe sits directly behind the text column (centred on it, and no
       // taller than the text), so it frames the words instead of competing.
-      const R = wide ? Math.min(H * 0.36, 330) : Math.min(W * 0.4, H * 0.28);
-      const cx = wide ? Math.min(Math.max(W * 0.205, 300), 410) : W * 0.5, cy = wide ? H * 0.5 : H * 0.3;
+      // Big, bright globe behind the text column (TCS-style): centred to the
+      // right of the text so it shows around and through the glass panel.
+      const R = wide ? Math.min(H * 0.47, W * 0.22, 440) : Math.min(W * 0.4, H * 0.28);
+      const cx = wide ? W * 0.3 : W * 0.5, cy = wide ? H * 0.5 : H * 0.3;
       geo = { cx, cy, R };
-      const mapH = wide ? H * 0.82 : 0, mapLatSpan = 32, mapLonSpan = 30 * Math.cos(22 * DEG);
+      const mapLatSpan = 32, mapLonSpan = 30 * Math.cos(22 * DEG);
+      // keep India clear of the text column (which ends about 790 px from the left)
+      const mapH = wide ? Math.max(0, Math.min(H * 0.82, (W - 890) / (mapLonSpan / mapLatSpan))) : 0;
       const mapScale = mapH / mapLatSpan;
       const mapW = mapLonSpan * mapScale;
       const mapX = W - mapW - W * 0.02, mapY = (H - mapH) / 2 + H * 0.01;
@@ -257,7 +261,7 @@ export default function HeroScene({ className = "", onLayout }: {
 
       // ---------------------------------------------------------- globe
       const atm = g.createRadialGradient(cx, cy, R * 0.96, cx, cy, R * 1.25);
-      atm.addColorStop(0, "rgba(56,189,248,0.40)"); atm.addColorStop(0.35, "rgba(34,211,238,0.10)");
+      atm.addColorStop(0, "rgba(56,189,248,0.55)"); atm.addColorStop(0.35, "rgba(34,211,238,0.16)");
       atm.addColorStop(1, "rgba(3,10,20,0)");
       g.fillStyle = atm; g.beginPath(); g.arc(cx, cy, R * 1.25, 0, Math.PI * 2); g.fill();
 
@@ -311,11 +315,11 @@ export default function HeroScene({ className = "", onLayout }: {
 
       // ocean
       const oc = g.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.05, cx, cy, R);
-      oc.addColorStop(0, "#124B73"); oc.addColorStop(0.55, "#0A2E4D"); oc.addColorStop(1, "#061C33");
+      oc.addColorStop(0, "#17608F"); oc.addColorStop(0.55, "#0C3A60"); oc.addColorStop(1, "#072643");
       g.fillStyle = oc; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
 
       // graticule
-      g.strokeStyle = "rgba(125,211,252,0.12)"; g.lineWidth = 0.7;
+      g.strokeStyle = "rgba(125,211,252,0.18)"; g.lineWidth = 0.7;
       for (const l of grat) {
         g.beginPath(); let on = false;
         for (const p of l) { const q = project(p); if (q.z <= 0) { on = false; continue; }
@@ -324,7 +328,7 @@ export default function HeroScene({ className = "", onLayout }: {
       }
       // continent mesh
       const pm = lmV.map(project);
-      g.strokeStyle = "rgba(125,230,255,0.28)"; g.lineWidth = 0.6;
+      g.strokeStyle = "rgba(125,230,255,0.36)"; g.lineWidth = 0.7;
       g.beginPath();
       for (const [i, j] of lmLinks) { const a = pm[i], b = pm[j];
         if (a.z <= 0.05 || b.z <= 0.05) continue; g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); }
@@ -332,15 +336,15 @@ export default function HeroScene({ className = "", onLayout }: {
 
       // land (night side: dim blue land with warm city lights)
       g.globalCompositeOperation = "lighter";
-      const ds = Math.max(1.3, R / 170);
+      const ds = Math.max(1.7, R / 150);
       for (const w of world) {
         const q = project(w.v); if (q.z <= 0) continue;
         if (w.city) {
           g.globalAlpha = 0.5 + 0.5 * q.z;
-          g.drawImage(glowGold, q.x - 3, q.y - 3, 6, 6);
+          g.drawImage(glowGold, q.x - 4, q.y - 4, 8, 8);
           g.globalAlpha = 1;
         } else {
-          g.fillStyle = `rgba(110,205,245,${(0.42 + 0.58 * q.z).toFixed(3)})`;
+          g.fillStyle = `rgba(140,225,255,${(0.6 + 0.4 * q.z).toFixed(3)})`;
           g.fillRect(q.x - ds / 2, q.y - ds / 2, ds, ds);
         }
       }
@@ -353,7 +357,7 @@ export default function HeroScene({ className = "", onLayout }: {
 
       // terminator shading + rim
       const sh = g.createLinearGradient(cx - R, cy - R, cx + R * 0.6, cy + R);
-      sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(1,6,14,0.4)");
+      sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(1,6,14,0.25)");
       g.fillStyle = sh; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
       const rim = g.createRadialGradient(cx, cy, R * 0.88, cx, cy, R);
       rim.addColorStop(0, "rgba(56,189,248,0)"); rim.addColorStop(1, "rgba(125,211,252,0.35)");

@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import {
   Activity, BarChart3, ChevronRight, Crosshair,
   Image as ImageIcon, Layers, Network, Play, Satellite, ShieldAlert, Waypoints, Route, Map as MapIcon,
-  EyeOff, Gauge, CheckCircle2, Circle, Loader2, Plus, GitBranch, Ruler, AlertOctagon,
+  BookOpen, CheckCircle2, Circle, Loader2, Plus, GitBranch, Ruler, AlertOctagon,
 } from "lucide-react";
 import clsx from "clsx";
 import { usePipeline } from "@/hooks/usePipeline";
@@ -196,21 +196,20 @@ const FINAL_RESULTS = {
 function Landing({ health, onLaunch }: { health: any; onLaunch: (t?: Tab) => void }) {
   const arch = health?.checkpoint_metadata?.architecture;
   const [anchors, setAnchors] = useState<HeroAnchors>({ map: null });
-  const hi = "text-cyan-300 font-semibold font-mono";
-  const features: [any, string, JSX.Element][] = [
-    [Satellite, "Sees hidden roads",
-      <>Extracts road networks from satellite imagery, including roads under{" "}
-        <b className="text-white">trees, shadows and vehicles</b>.</>],
-    [Network, "Heals and stress-tests the network",
-      <>Repairs broken roads into a routable graph, finds the critical intersections and
-        simulates floods, closures and <b className="text-white">failures</b>.</>],
-    [Gauge, `${FINAL_RESULTS.model}`,
-      <>Test IoU <span className={hi}>{FINAL_RESULTS.iou}</span> &middot; Dice{" "}
-        <span className={hi}>{FINAL_RESULTS.dice}</span> &middot; clDice{" "}
-        <span className={hi}>{FINAL_RESULTS.cldice}</span> on 498 held-out DeepGlobe tiles.</>],
-    [EyeOff, "Occlusion training",
-      <>Recall on hidden roads under clutter <span className={hi}>0.55</span>{" "}
-        &rarr; <span className={hi}>0.89</span>.</>],
+  const hi = "text-cyan-200 font-semibold font-mono";
+  const glance: JSX.Element[] = [
+    <>Finds the roads in satellite images, including roads hidden under{" "}
+      <b className="text-white font-semibold">trees, shadows and vehicles</b>.</>,
+    <>Repairs broken roads into a <b className="text-white font-semibold">routable network</b>, finds the
+      junctions a city cannot afford to lose, and simulates floods, closures and failures.</>,
+    <>Final model <b className="text-white font-semibold">{FINAL_RESULTS.model}</b>: test IoU{" "}
+      <span className={hi}>{FINAL_RESULTS.iou}</span> &middot; Dice{" "}
+      <span className={hi}>{FINAL_RESULTS.dice}</span> &middot; clDice{" "}
+      <span className={hi}>{FINAL_RESULTS.cldice}</span> on 498 held-out DeepGlobe tiles.</>,
+    <>Occlusion training: hidden-road recall under synthetic clutter{" "}
+      <span className={hi}>0.55</span> &rarr; <span className={hi}>0.89</span>.</>,
+    <>Tested on Indian satellites: <b className="text-white font-semibold">Sentinel-2</b> and{" "}
+      <b className="text-white font-semibold">ResourceSat-2A LISS-IV</b> over Hyderabad.</>,
   ];
   const m = anchors.map;
   return (
@@ -238,47 +237,38 @@ function Landing({ health, onLaunch }: { health: any; onLaunch: (t?: Tab) => voi
 
       <div className="relative z-10 min-h-screen flex flex-col justify-center px-6 sm:px-12 lg:px-14 py-10
                       pointer-events-none [&>*]:pointer-events-auto">
-        <div className="max-w-[43rem] self-start">
-          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-[#06182D]/70
-                          px-3.5 py-1.5 text-[13px] font-medium tracking-wide text-cyan-100/90 backdrop-blur">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 animate-pulse" />
-            VIT-AP Capstone 2026&ndash;27 &middot; Satellite AI for road networks
-          </div>
-
-          <div className="mt-5 flex items-center gap-4">
+        <div className="max-w-[47rem] self-start">
+          <div className="flex items-center gap-4">
             <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-cyan-300/40
                             bg-cyan-300/10 backdrop-blur shadow-[0_0_30px_rgba(34,211,238,0.4)]">
               <Waypoints size={34} className="text-cyan-300" />
             </div>
-            <h1 className="whitespace-nowrap text-5xl sm:text-[4.4rem] font-bold leading-[1.02] tracking-tight text-white
-                           drop-shadow-[0_2px_20px_rgba(0,0,0,0.6)]">
+            <h1 className="whitespace-nowrap text-5xl sm:text-[4.9rem] font-bold leading-[1.02] tracking-tight text-white
+                           [text-shadow:0_2px_4px_rgba(0,0,0,0.8),0_0_24px_rgba(2,8,20,0.9)]">
               Route Resilience{" "}
-              <span className="bg-gradient-to-r from-cyan-300 to-teal-300 bg-clip-text text-transparent">AI</span>
+              <span className="bg-gradient-to-r from-cyan-300 to-teal-300 bg-clip-text text-transparent [text-shadow:none] drop-shadow-[0_0_16px_rgba(34,211,238,0.45)]">AI</span>
             </h1>
           </div>
-          <p className="mt-3 text-[1.2rem] leading-relaxed text-slate-200/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.8)]">
+          <p className="mt-3 text-[1.38rem] leading-relaxed text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.95),0_0_14px_rgba(2,8,20,0.95)]">
             Seeing roads through trees and shadows, and finding the junctions a city
             cannot afford to lose.
           </p>
 
-          <div className="mt-5 rounded-2xl border border-cyan-300/20 bg-[#061527]/70 backdrop-blur-md
-                          shadow-[0_24px_60px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.05)] px-5 py-4">
-            <h2 className="text-[12.5px] font-mono font-semibold uppercase tracking-[0.2em] text-cyan-300/90">Project Glance</h2>
-            <ul className="mt-3 space-y-2">
-              {features.map(([Icon, title, body], i) => (
-                <li key={i} className="flex gap-3.5 rounded-xl border border-white/5 bg-white/[0.03] px-3.5 py-2.5">
-                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-cyan-300/25
-                                  bg-cyan-300/10 text-cyan-300">
-                    <Icon size={18} />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-white text-[16px]">{title}</div>
-                    <div className="text-[14.5px] leading-snug text-slate-300/85 mt-0.5">{body}</div>
-                  </div>
+          <div className="mt-6 rounded-2xl border border-white/10 bg-[#0B1E33]/50 backdrop-blur-[3px]
+                          shadow-[0_20px_50px_rgba(0,0,0,0.35)] px-7 py-5">
+            <div className="flex items-center gap-3">
+              <BookOpen size={26} className="text-cyan-200" />
+              <h2 className="text-[22px] font-semibold text-white">Project Glance:</h2>
+            </div>
+            <ul className="mt-3.5 space-y-2 pl-1">
+              {glance.map((body, i) => (
+                <li key={i} className="flex gap-3 text-[17.5px] leading-relaxed text-slate-100/90">
+                  <span className="mt-[0.6em] h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300" />
+                  <span>{body}</span>
                 </li>
               ))}
             </ul>
-            <div className="mt-4 flex flex-wrap items-center gap-3 text-[15px]">
+            <div className="mt-5 flex flex-wrap items-center gap-3 text-[16px]">
               <span className="font-semibold text-white">Model status:</span>
               {health ? (
                 <span className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-mono
@@ -290,32 +280,32 @@ function Landing({ health, onLaunch }: { health: any; onLaunch: (t?: Tab) => voi
                     ? `Trained checkpoint${arch ? ` \u00b7 ${arch}` : ""}`
                     : "No checkpoint"}
                 </span>
-              ) : <span className="text-xs text-slate-500">connecting to backend...</span>}
+              ) : <span className="text-xs text-slate-400">connecting to backend...</span>}
             </div>
             {health && !health.checkpoint_found && (
               <div className="mt-3"><Note tone="warn">{health.notes}</Note></div>
             )}
-            <p className="mt-2.5 text-[13px] leading-relaxed text-slate-400">
-              <b className="text-slate-200">Note:</b> scores are on the DeepGlobe test split (0.5&nbsp;m
-              imagery). Results on LISS-IV and Sentinel-2 are in View Results.
+            <p className="mt-3 text-[14.5px] leading-relaxed text-slate-400">
+              Scores are on the DeepGlobe test split (0.5&nbsp;m imagery). Results on LISS-IV and
+              Sentinel-2 are in View Results.
             </p>
-          </div>
 
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button onClick={() => onLaunch("overview")}
-                    className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-300 to-teal-300
-                               px-7 py-3.5 text-[15px] font-bold uppercase tracking-wider text-slate-900
-                               shadow-[0_0_26px_rgba(34,211,238,0.55)] hover:brightness-110 transition">
-              Launch Dashboard <ChevronRight size={16} />
-            </button>
-            {([["trip", "Plan a Trip"], ["evaluation", "View Results"]] as [Tab, string][]).map(([k, label]) => (
-              <button key={k} onClick={() => onLaunch(k)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-[#061527]/70
-                                 px-7 py-3.5 text-[15px] font-bold uppercase tracking-wider text-white backdrop-blur
-                                 hover:border-cyan-300/60 hover:bg-cyan-300/10 transition">
-                {label} <ChevronRight size={16} />
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button onClick={() => onLaunch("overview")}
+                      className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-300 to-teal-300
+                                 px-6 py-3.5 text-[15px] font-bold uppercase tracking-[0.1em] whitespace-nowrap text-slate-900
+                                 shadow-[0_6px_20px_rgba(34,211,238,0.45)] hover:brightness-110 transition">
+                Launch Dashboard <ChevronRight size={16} />
               </button>
-            ))}
+              {([["trip", "Plan a Trip"], ["evaluation", "View Results"]] as [Tab, string][]).map(([k, label]) => (
+                <button key={k} onClick={() => onLaunch(k)}
+                        className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/[0.06]
+                                   px-6 py-3.5 text-[15px] font-bold uppercase tracking-[0.1em] whitespace-nowrap text-white
+                                   shadow-[0_6px_20px_rgba(0,0,0,0.35)] hover:border-cyan-300/60 hover:bg-cyan-300/10 transition">
+                  {label} <ChevronRight size={16} />
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
